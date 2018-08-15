@@ -206,9 +206,10 @@ bfe.define('src/bfe', ['require', 'exports', 'module', 'src/bfestore', 'src/bfel
       'name': 'LCSH',
       'load': require('src/lookups/lcsubjects')
     },
+    /***Changed this to using qagenreforms***/
     'http://id.loc.gov/authorities/genreForms': {
       'name': 'LCGFT',
-      'load': require('src/lookups/lcgenreforms')
+      "load": require("src/lookups/qagenreforms") //used to be lcgenreform
     },
     'http://id.loc.gov/resources/works': {
       'name': 'LC-Works',
@@ -664,6 +665,15 @@ bfe.define('src/bfe', ['require', 'exports', 'module', 'src/bfestore', 'src/bfel
                 var loadtemplate = {};
                 loadtemplate.templateGUID = rowData.name;
                 loadtemplate.resourceTemplateID = l;
+                /** Addition to get this to work on local machine **/
+                //setting resourceURI here based on the resource template id
+                if(loadtemplate.resourceTemplateID.endsWith("Instance")) {
+					loadtemplate.resourceURI = editorconfig.baseURI + "resources/instances/";
+				}
+				else if(loadtemplate.resourceTemplateID.endsWith("Work")) {
+														loadtemplate.resourceURI = editorconfig.baseURI + "resources/works/";
+				}
+                /** End addition **/
                 // loadtemplate.resourceURI = cellData;
                 // loadtemplate.resourceURI = whichrt(loadtemplate, editorconfig.baseURI) + loadTemplate.templateGUID;//editorconfig.baseURI + useguid;
                 loadtemplate.embedType = 'page';
@@ -4558,6 +4568,149 @@ bfe.define('src/lookups/lcsubjects', ['require', 'exports', 'module', 'src/looku
     */
   exports.getResource = lcshared.getResourceWithAAP;
 });
+
+
+/**Adding QA basis **/
+//QA version of lcshared
+bfe.define('src/lookups/qashared', ['require', 'exports', 'module'], function(require, exports, module) {
+
+    //require('https://twitter.github.io/typeahead.js/releases/latest/typeahead.bundle.js');
+
+    /*
+        subjecturi propertyuri selected.uri
+        selected.uri  bf:label selected.value
+    */
+
+	exports.getResource = function (subjecturi, property, selected, process) {
+	    var triples = [];
+
+	    var triple = {};
+	    triple.s = subjecturi;
+	    triple.p = property.propertyURI;
+	    selected.uri = selected.uri;
+	    triple.o = selected.uri;
+	    triple.otype = 'uri';
+	    triples.push(triple);
+
+	    triple = {};
+	    triple.s = selected.uri;
+	    triple.p = 'http://www.w3.org/2000/01/rdf-schema#label';
+	    triple.o = selected.value;
+	    triple.otype = 'literal';
+	    triple.olang = 'en';
+	    triples.push(triple);
+
+	    return process(triples, property);
+	  };
+
+	  exports.getResourceWithAAP = function (subjecturi, property, selected, process) {
+	    var triples = [];
+
+	    var triple = {};
+	    triple.s = subjecturi;
+	    triple.p = property.propertyURI;
+	    triple.o = selected.uri;
+	    triple.otype = 'uri';
+	    triples.push(triple);
+
+	    triple = {};
+	    triple.s = subjecturi;
+	    triple.p = 'http://www.w3.org/2000/01/rdf-schema#label';
+	    triple.o = selected.value;
+	    triple.otype = 'literal';
+	    triple.olang = 'en';
+	    triples.push(triple);
+
+	    process(triples, property);
+	  };
+
+
+    exports.processSuggestions = function(suggestions, query) {
+        var typeahead_source = [];
+        if (suggestions !== undefined) {
+            for (var s = 0; s < suggestions.length; s++) {
+               	//suggestions should include uri and label, map to uri and valuee
+               	var suggestion = suggestions[s];
+               	var u = suggestion["uri"];
+               	var li = suggestion["label"];
+
+                typeahead_source.push({
+                    uri: u,
+                    value: li
+                });
+            }
+        }
+        if (typeahead_source.length === 0) {
+            typeahead_source[0] = {
+                uri: "",
+                value: "[No suggestions found for " + query + ".]"
+            };
+        }
+        //console.log(typeahead_source);
+        //$("#dropdown-footer").text('Total Results:' + suggestions.length);
+        return typeahead_source;
+    }
+
+
+
+
+});
+//Creating QA version of lcgenreform processing
+bfe.define('src/lookups/qagenreforms', ['require', 'exports', 'module', 'src/lookups/qashared'], function(require, exports, module) {
+    var qashared = require("src/lookups/qashared");
+
+    var cache = [];
+
+    exports.scheme = "http://id.loc.gov/authorities/genreForms";
+
+    exports.source = function(query, process) {
+		//var scheme = "http://elr37-dev.library.cornell.edu/qa/search/linked_data/locgenres_ld4l_cache";
+		var scheme = "http://localhost:8000/qalcgft";
+        var rdftype = "rdftype:GenreForm";
+
+        var q = scheme + "?q=" + query;
+
+        console.log('q is ' + q);
+        q = encodeURI(q);
+
+        if (cache[q]) {
+            process(cache[q]);
+            return;
+        }
+        if (typeof this.searching != "undefined") {
+            console.log("searching defined");
+            clearTimeout(this.searching);
+            process([]);
+        }
+        //lcgft
+        this.searching = setTimeout(function() {
+            if (query.length > 2) {
+
+
+                u = scheme + "?q=" + query;
+                $.ajax({
+                    url: u,
+                    dataType: "json", //if data type is jsonp, need to ensure some info
+                    success: function(data) {
+                        parsedlist = qashared.processSuggestions(data, query);
+
+                        cache[q] = parsedlist;
+                        return process(parsedlist);
+                    }
+
+                });
+            } else {
+                return [];
+            }
+        }, 300); // 300 ms
+
+    }
+
+    exports.getResource = qashared.getResourceWithAAP;
+
+});
+/**Added QA basis**/
+
 bfe.define('src/lookups/lcgenreforms', ['require', 'exports', 'module', 'src/lookups/lcshared'], function (require, exports, module) {
   var lcshared = require('src/lookups/lcshared');
 
