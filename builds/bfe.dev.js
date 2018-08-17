@@ -1658,8 +1658,11 @@ bfe.define('src/bfe', ['require', 'exports', 'module', 'src/bfestore', 'src/bfel
                             var $inputdiv = $('<div class="col-sm-8"></div>');
                             $input = $('<input type="text" class="typeahead form-control" data-propertyguid="' + property.guid + '" id="' + property.guid + '" placeholder="' + property.propertyLabel + '" tabindex="' + tabIndices++ + '">');
                             var $input_page = $('<input type="hidden" id="' + property.guid + '_page" class="typeaheadpage" value="1">');
-
+                            
+                            /**Testing out additional div to show results**/
+                            var $additionalDiv = $("<div id='testdiv'></div>");
                             $inputdiv.append($input);
+                            $inputdiv.append($additionalDiv);
                             $inputdiv.append($input_page);
 
 
@@ -3024,9 +3027,24 @@ bfe.define('src/bfe', ['require', 'exports', 'module', 'src/bfestore', 'src/bfel
             dshash.source = function(query, process) {
                 lu.load.source(query, process, formobject);
             };
+            //This is a test for enabling context to be available and to see if we can change the look/feel
+            //Likely not using autocomplete
             dshash.templates = {
                 header: '<h3>' + lu.name + '</h3>',
-                footer: '<div id="dropdown-footer" class=".col-sm-1"></div>'
+                footer: '<div id="dropdown-footer" class=".col-sm-1"></div>',
+                suggestion: function (data) {
+                	var htmlToReturn = '<div style="clear:both;float:none"><div style="float:left"><strong>' + data.value + '</strong></div>';
+                	if("context" in data) {
+                		var context = data["context"];
+                		//LCFGT specific
+                		if("Alternate Label" in context) {
+                			var labels = context["Alternate Label"].join("<br/>");
+                			htmlToReturn += '<div style="float:left">&nbsp;&nbsp;' + labels + "</div>";
+                		}
+                	}
+                	htmlToReturn += '</div>';
+                    return htmlToReturn;
+                }
             };
             dshash.displayKey = 'value';
             dshashes.push(dshash);
@@ -4502,10 +4520,14 @@ bfe.define('src/lookups/qashared', ['require', 'exports', 'module'], function(re
                	var suggestion = suggestions[s];
                	var u = suggestion["uri"];
                	var li = suggestion["label"];
-
+               	var context = {};
+               	if("context" in suggestion) {
+               		context = suggestion["context"];
+               	}
                 typeahead_source.push({
                     uri: u,
-                    value: li
+                    value: li,
+                    context: context
                 });
             }
         }
@@ -4562,7 +4584,13 @@ bfe.define('src/lookups/qagenreforms', ['require', 'exports', 'module', 'src/loo
                     dataType: "json", //if data type is jsonp, need to ensure some info
                     success: function(data) {
                         parsedlist = qashared.processSuggestions(data, query);
-
+                        //Testing out writing out to test div
+                        $("div#testdiv").html("");
+                        var testhtml = "";
+                        $.each(parsedlist, function(i, v) {
+                        	testhtml += v["value"] + ":" + v["uri"] + "<br/>";
+                        });
+                        $("div#testdiv").html(testhtml);
                         cache[q] = parsedlist;
                         return process(parsedlist);
                     }
