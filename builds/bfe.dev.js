@@ -1659,23 +1659,24 @@ bfe.define('src/bfe', ['require', 'exports', 'module', 'src/bfestore', 'src/bfel
                            
                             /**Testing out additional div to show results and trying a different approach for submitting lookup**/
                             //This is property specific
-                            if(property.propertyURI == "http://id.loc.gov/ontologies/bibframe/genreForm") {
+                            var useValuesFrom = property.valueConstraint.useValuesFrom; //"http://id.loc.gov/authorities/genreForms"
+                            if(useValuesFrom.length > 0 && useValuesFrom[0] == "http://id.loc.gov/authorities/genreForms") {
                             	//NOT typeahead, just enter and hit submit
                         		$input = $('<input name="lookupQuery" type="text" class="form-control" data-propertyguid="' + property.guid + '" id="' + property.guid + '" placeholder="' + property.propertyLabel + '" tabindex="' + tabIndices++ + '">');
                         		$inputLookup = $('<button type="button" name="lookupButton" lookupId="' + property.guid + '">Lookup</button>');
                         		$inputLookup.on('click', function() {
                         			var lookupId = $(this).attr("lookupId");
-                        			var query = $("input[name='lookupQuery' data-propertyguid='" + lookupId + "']").val();
+                        			var query = $("input#" + lookupId).val();
+                        		    //Trying to attach lookup to this, not sure if this is the way to do it or not
+                        			var qagenreforms = require("src/lookups/qagenreforms");
                         			qagenreforms.doLookup(query);
                         		});
+  	                           var $additionalDiv = $("<div id='testdiv'></div>");
+                      		
                         		$inputdiv.append($input);
  	                            $inputdiv.append($inputLookup);
-                        		/*
-	                            var $additionalDiv = $("<div id='testdiv'></div>");
-	                            $inputdiv.append($input);
 	                            $inputdiv.append($additionalDiv);
-	                            $inputdiv.append($input_page);*/
-
+                
                             } else {
                             
                         		$input = $('<input type="text" class="typeahead form-control" data-propertyguid="' + property.guid + '" id="' + property.guid + '" placeholder="' + property.propertyLabel + '" tabindex="' + tabIndices++ + '">');
@@ -4564,14 +4565,7 @@ bfe.define('src/lookups/qashared', ['require', 'exports', 'module'], function(re
                   dataType: "json", //if data type is jsonp, need to ensure some info
                   success: function(data) {
                       parsedlist = exports.processSuggestions(data, query);
-                      //Testing out writing out to test div
-                      /*
-                      $("div#testdiv").html("");
-                      var testhtml = "";
-                      $.each(parsedlist, function(i, v) {
-                      	testhtml += v["value"] + ":" + v["uri"] + "<br/>";
-                      });
-                      $("div#testdiv").html(testhtml);*/
+                     
                       var q = scheme + "?q=" + query;
 
                       cache[q] = parsedlist;
@@ -4636,7 +4630,21 @@ bfe.define('src/lookups/qagenreforms', ['require', 'exports', 'module', 'src/loo
     
     exports.doLookup = function(query) {
     	//URI should not be hardcoded but linked back to scheme or whatever property denotes API call
-    	return qashared.lookupQA(query, "http://localhost:8000/qalcgft", cache);
+    	//ookupQA(query, scheme, cache, process)
+    	//Not sure what to do with process here other than perhaps write out to template?
+    	//setTimeout(function() {
+    		return qashared.lookupQA(query, "http://localhost:8000/qalcgft", cache, function(parsedList){
+    			 //Testing out writing out to test div
+                
+                $("div#testdiv").html("");
+                var testhtml = "";
+                $.each(parsedlist, function(i, v) {
+                	testhtml += v["value"] + ":" + v["uri"] + "<br/>";
+                });
+                $("div#testdiv").html(testhtml);
+    		});        
+    		//}, 300);
+    	
     }
     exports.getResource = qashared.getResourceWithAAP;
 
