@@ -1656,20 +1656,39 @@ bfe.define('src/bfe', ['require', 'exports', 'module', 'src/bfestore', 'src/bfel
                             }
 
                             var $inputdiv = $('<div class="col-sm-8"></div>');
-                            $input = $('<input type="text" class="typeahead form-control" data-propertyguid="' + property.guid + '" id="' + property.guid + '" placeholder="' + property.propertyLabel + '" tabindex="' + tabIndices++ + '">');
-                            var $input_page = $('<input type="hidden" id="' + property.guid + '_page" class="typeaheadpage" value="1">');
+                           
+                            /**Testing out additional div to show results and trying a different approach for submitting lookup**/
+                            //This is property specific
+                            if(property.propertyURI == "http://id.loc.gov/ontologies/bibframe/genreForm") {
+                            	//NOT typeahead, just enter and hit submit
+                        		$input = $('<input name="lookupQuery" type="text" class="form-control" data-propertyguid="' + property.guid + '" id="' + property.guid + '" placeholder="' + property.propertyLabel + '" tabindex="' + tabIndices++ + '">');
+                        		$inputLookup = $('<button type="button" name="lookupButton" lookupId="' + property.guid + '">Lookup</button>');
+                        		$inputLookup.on('click', function() {
+                        			var lookupId = $(this).attr("lookupId");
+                        			var query = $("input[name='lookupQuery' data-propertyguid='" + lookupId + "']").val();
+                        			qagenreforms.doLookup(query);
+                        		});
+                        		$inputdiv.append($input);
+ 	                            $inputdiv.append($inputLookup);
+                        		/*
+	                            var $additionalDiv = $("<div id='testdiv'></div>");
+	                            $inputdiv.append($input);
+	                            $inputdiv.append($additionalDiv);
+	                            $inputdiv.append($input_page);*/
+
+                            } else {
                             
-                            /**Testing out additional div to show results**/
-                            var $additionalDiv = $("<div id='testdiv'></div>");
-                            $inputdiv.append($input);
-                            $inputdiv.append($additionalDiv);
-                            $inputdiv.append($input_page);
-
-
-                            $input.on('focus', function() {
-                                if ($(this).val() === '') // you can also check for minLength
-                                    $(this).data().ttTypeahead.input.trigger('queryChanged', '');
-                            });
+                        		$input = $('<input type="text" class="typeahead form-control" data-propertyguid="' + property.guid + '" id="' + property.guid + '" placeholder="' + property.propertyLabel + '" tabindex="' + tabIndices++ + '">');
+                        		var $input_page = $('<input type="hidden" id="' + property.guid + '_page" class="typeaheadpage" value="1">');
+                                              
+	                            $input.on('focus', function() {
+	                                if ($(this).val() === '') // you can also check for minLength
+	                                    $(this).data().ttTypeahead.input.trigger('queryChanged', '');
+	                            });
+	                            
+	                            $inputdiv.append($input);
+	                            $inputdiv.append($input_page);
+                            }
 
                             $formgroup.append($label);
                             $inputdiv.append($saves);
@@ -4511,6 +4530,60 @@ bfe.define('src/lookups/qashared', ['require', 'exports', 'module'], function(re
 	        process(triples, property);
     }
 
+      
+      /**pulling out main lookup code, the only thing that changes between QA requests is the scheme**/
+      exports.source = function(query, scheme, process, cache) {
+          var rdftype = "rdftype:GenreForm";
+
+          var q = scheme + "?q=" + query;
+
+          console.log('q is ' + q);
+          q = encodeURI(q);
+
+          if (cache[q]) {
+              process(cache[q]);
+              return;
+          }
+          if (typeof this.searching != "undefined") {
+              console.log("searching defined");
+              clearTimeout(this.searching);
+              process([]);
+          }
+          //lcgft
+          this.searching = setTimeout(function() {
+          	return exports.lookupQA(query, scheme, cache, process);        }, 300); // 300 ms
+
+      }
+
+      
+      exports.lookupQA = function(query, scheme, cache, process) {
+          if (query.length > 2) {
+              u = scheme + "?q=" + query;
+              $.ajax({
+                  url: u,
+                  dataType: "json", //if data type is jsonp, need to ensure some info
+                  success: function(data) {
+                      parsedlist = exports.processSuggestions(data, query);
+                      //Testing out writing out to test div
+                      /*
+                      $("div#testdiv").html("");
+                      var testhtml = "";
+                      $.each(parsedlist, function(i, v) {
+                      	testhtml += v["value"] + ":" + v["uri"] + "<br/>";
+                      });
+                      $("div#testdiv").html(testhtml);*/
+                      var q = scheme + "?q=" + query;
+
+                      cache[q] = parsedlist;
+                      return process(parsedlist);
+                  }
+
+              });
+          } else {
+              return [];
+          }
+      }
+  
 
     exports.processSuggestions = function(suggestions, query) {
         var typeahead_source = [];
@@ -4551,58 +4624,20 @@ bfe.define('src/lookups/qagenreforms', ['require', 'exports', 'module', 'src/loo
     var qashared = require("src/lookups/qashared");
 
     var cache = [];
-
+    //Where else is this used? Is this always the URL of the API?
     exports.scheme = "http://id.loc.gov/authorities/genreForms";
 
     exports.source = function(query, process) {
 		//var scheme = "http://elr37-dev.library.cornell.edu/qa/search/linked_data/locgenres_ld4l_cache";
 		var scheme = "http://localhost:8000/qalcgft";
-        var rdftype = "rdftype:GenreForm";
-
-        var q = scheme + "?q=" + query;
-
-        console.log('q is ' + q);
-        q = encodeURI(q);
-
-        if (cache[q]) {
-            process(cache[q]);
-            return;
-        }
-        if (typeof this.searching != "undefined") {
-            console.log("searching defined");
-            clearTimeout(this.searching);
-            process([]);
-        }
-        //lcgft
-        this.searching = setTimeout(function() {
-            if (query.length > 2) {
-
-
-                u = scheme + "?q=" + query;
-                $.ajax({
-                    url: u,
-                    dataType: "json", //if data type is jsonp, need to ensure some info
-                    success: function(data) {
-                        parsedlist = qashared.processSuggestions(data, query);
-                        //Testing out writing out to test div
-                        $("div#testdiv").html("");
-                        var testhtml = "";
-                        $.each(parsedlist, function(i, v) {
-                        	testhtml += v["value"] + ":" + v["uri"] + "<br/>";
-                        });
-                        $("div#testdiv").html(testhtml);
-                        cache[q] = parsedlist;
-                        return process(parsedlist);
-                    }
-
-                });
-            } else {
-                return [];
-            }
-        }, 300); // 300 ms
+		qashared.source(query, scheme, process, cache);
 
     }
-
+    
+    exports.doLookup = function(query) {
+    	//URI should not be hardcoded but linked back to scheme or whatever property denotes API call
+    	return qashared.lookupQA(query, "http://localhost:8000/qalcgft", cache);
+    }
     exports.getResource = qashared.getResourceWithAAP;
 
 });
