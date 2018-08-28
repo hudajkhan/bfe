@@ -4637,10 +4637,52 @@ bfe.define('src/lookups/qagenreforms', ['require', 'exports', 'module', 'src/loo
     			 //Testing out writing out to test div
                 
                 $("div#testdiv").html("");
-                var testhtml = "";
+                var testhtml = "<div class='container'><div class='row'> " + 
+                "<div class='dt col-sm-1'>Labels</div>" + 
+                "<div class='dt col-sm-2'>Note</div>" + 
+                "<div class='dt col-sm-2'>Broader/Narrower</div>" + 
+                "<div class='dt col-sm-3'>&nbsp;</div>" + 
+                "</div>";
                 $.each(parsedlist, function(i, v) {
-                	testhtml += v["value"] + ":" + v["uri"] + "<br/>";
+                	//testhtml += v["value"] + ":" + v["uri"] + "<br/>";
+                	var label = v["value"];
+                	var uri = v["uri"];
+                	var context = v["context"];
+                	var alternate, broaderNarrower, note = "&nbsp";
+                	
+                	if("Alternate Label" in context && context["Alternate Label"].length > 0) {
+                		alternate = context["Alternate Label"].join("<br/>");
+                	}
+                	
+                	if("Broader" in context && context["Broader"].length > 0 ) {
+                		broaderNarrower = "Broader: ";
+                		$.each(context["Broader"], function(i, o) {
+                			var label = o["label"];
+                			broaderNarrower += label + " ,"; //fix this later
+                		}) 
+                		broaderNarrower += "<br/>";
+                	}
+                	if("Narrower" in context && context["Narrower"].length > 0) {
+           
+                		$.each(context["Narrower"], function(i, o) {
+                			broaderNarrower += "Narrower :";
+                			var label = o["label"];
+                			broaderNarrower += label + " ,"; //fix this later
+                		}) 
+                		
+                	}
+                	if("Note" in context && context["Note"].length > 0) {
+                		note = context["Note"][0];
+                	}
+                	var labels = "<b>" + label + "</b><br/>" + alternate;
+                	testhtml += "<div class='row'> " + 
+                    "<div class='col-sm-1'>" + labels + "</div>" + 
+                    "<div class='col-sm-2'>" + note + "</div>" + 
+                    "<div class='col-sm-2'>" + broaderNarrower + "</div>" + 
+                    "<div class='col-sm-3'><a href='" + v["uri"] + "'>View</a></div>" + 
+                    "</div>";
                 });
+                testhtml += "</div>";
                 $("div#testdiv").html(testhtml);
     		});        
     		//}, 300);
