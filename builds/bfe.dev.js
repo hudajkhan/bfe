@@ -1672,7 +1672,17 @@ bfe.define('src/bfe', ['require', 'exports', 'module', 'src/bfestore', 'src/bfel
                         			qagenreforms.doLookup(query);
                         		});
   	                           var $additionalDiv = $("<div id='testdiv'></div>");
-                      		
+  	                           //Adding selection handling here
+  	                           $additionalDiv.on("click", function(event) {
+  	                        	   var clickTarget = $(event.target);
+  	                        	   if(clickTarget.attr("name") == "contextResult") {
+  	                        		   //call the typeahead selection function
+  	                        		   //even though at least one of those lines is irrelevant
+  	                        		   
+  	                        	   }
+  	                           })
+  	                           
+  	                           
                         		$inputdiv.append($input);
  	                            $inputdiv.append($inputLookup);
 	                            $inputdiv.append($additionalDiv);
@@ -3051,7 +3061,8 @@ bfe.define('src/bfe', ['require', 'exports', 'module', 'src/bfestore', 'src/bfel
             //Likely not using autocomplete
             dshash.templates = {
                 header: '<h3>' + lu.name + '</h3>',
-                footer: '<div id="dropdown-footer" class=".col-sm-1"></div>',
+                footer: '<div id="dropdown-footer" class=".col-sm-1"></div>'
+                	/*, Commenting out for now, trying different suggestion tempalte but keepimg original
                 suggestion: function (data) {
                 	var htmlToReturn = '<div style="clear:both;float:none"><div style="float:left"><strong>' + data.value + '</strong></div>';
                 	if("context" in data) {
@@ -3064,7 +3075,7 @@ bfe.define('src/bfe', ['require', 'exports', 'module', 'src/bfestore', 'src/bfel
                 	}
                 	htmlToReturn += '</div>';
                     return htmlToReturn;
-                }
+                }*/
             };
             dshash.displayKey = 'value';
             dshashes.push(dshash);
@@ -3124,6 +3135,9 @@ bfe.define('src/bfe', ['require', 'exports', 'module', 'src/bfestore', 'src/bfel
         }
         // Need more than 6?  That's crazy talk, man, crazy talk.
         $(input).on("typeahead:selected", function(event, suggestionobject, datasetname) {
+        	onTypeaheadSelection(input, event, suggestionobject, datasetname);
+        	/**Seeing if function call works instead**/
+        	/*
             bfelog.addMsg(new Error(), "DEBUG", "Typeahead selection made");
             var form = $("#" + event.target.id).closest("form").eq(0);
             var formid = $("#" + event.target.id).closest("form").eq(0).attr("id");
@@ -3291,7 +3305,182 @@ bfe.define('src/bfe', ['require', 'exports', 'module', 'src/bfestore', 'src/bfel
 
                 bfestore.storeDedup();
                 $("#bfeditor-debug").html(JSON.stringify(bfestore.store, undefined, " "));
+            }*/
+            
+            
+            //);
+        });
+    }
+    
+    /**LD4P2: Extracting out typeahead selected functionality which seems to create the RDF that will need to be stored**/
+    function onTypeaheadSelection(input, event, suggestionobject, datasetname) {
+        bfelog.addMsg(new Error(), "DEBUG", "Typeahead selection made");
+        var form = $("#" + event.target.id).closest("form").eq(0);
+        var formid = $("#" + event.target.id).closest("form").eq(0).attr("id");
+        formid = formid.replace('bfeditor-form-', '');
+        //reset page
+        $(input).parent().siblings(".typeaheadpage").val(1);
+        var resourceid = $(form).children("div").eq(0).attr("id");
+        var resourceURI = $(form).find("div[data-uri]").eq(0).attr("data-uri");
+
+        var propertyguid = $("#" + event.target.id).attr("data-propertyguid");
+        bfelog.addMsg(new Error(), "DEBUG", "propertyguid for typeahead input is " + propertyguid);
+
+        var s = editorconfig.baseURI + resourceid;
+        var p = "";
+        var formobject = _.where(forms, {
+            "id": formid
+        });
+        formobject = formobject[0];
+        formobject.resourceTemplates.forEach(function(t) {
+            var properties = _.where(t.propertyTemplates, {
+                "guid": propertyguid
             });
+            //console.log(properties);
+            if (properties[0] !== undefined) {
+                p = properties[0];
+            }
+        });
+
+        var lups = _.where(lookups, {
+            "name": datasetname
+        });
+        var lu;
+        if (lups[0] !== undefined) {
+            bfelog.addMsg(new Error(), "DEBUG", "Found lookup for datasetname: " + datasetname, lups[0]);
+            lu = lups[0].load;
+        }
+
+        //do we have new resourceURI?
+
+        lu.getResource(resourceURI, p, suggestionobject, function(returntriples, property){
+            bfelog.addMsg(new Error(), "DEBUG", "Triples returned from lookup's getResource func:", returntriples);
+
+            var resourceTriple = "";
+            var replaceBnode = property.propertyLabel === "Lookup" || property.type === "lookup" ? true : false;
+
+            returntriples.forEach(function(t) {
+                if (t.guid === undefined) {
+                    var tguid = guid();
+                    t.guid = tguid;
+                }
+
+                //if this is the resource, replace the blank node; otherwise push the label
+
+                if (_.some(formobject.store, {
+                        s: t.s
+                    }) && t.p !== "http://www.w3.org/2000/01/rdf-schema#label") {
+
+                    resourceTriple = _.find(formobject.store, {
+                        o: t.s
+                    })
+
+                    if (!replaceBnode || _.isEmpty(resourceTriple)){
+                        //push the triples
+                        formobject.store.push(t);
+                        bfestore.addTriple(t);
+
+                    } else {
+                        var resourceType = _.find(formobject.store, {p: "http://www.w3.org/1999/02/22-rdf-syntax-ns#type", o:formobject.resourceTemplates[0].resourceURI});
+
+                        resourceType.s = t.o;
+                        bfestore.addTriple(resourceType);
+
+                        if(replaceBnode) {
+                            resourceTriple.o = t.o;
+                            //find the bnode
+                            bfestore.addTriple(resourceTriple);
+                            formobject.store.push(resourceTriple);
+                        } else {
+                            formobject.store.push(t);
+                            bfestore.addTriple(t);
+                        }
+                    }
+                } else {
+                    //I don't think this workst.s = resourceTriple.o;
+                    formobject.store.push(t);
+                    bfestore.addTriple(t);
+                }
+            });
+
+            // We only want to show those properties that relate to
+            // *this* resource.
+            if (returntriples[0].s == resourceURI) {
+                formobject.resourceTemplates.forEach(function(rt) {
+                    //change structure from b_node property object to
+
+                    var properties = _.where(rt.propertyTemplates, {
+                        "propertyURI": returntriples[0].p
+                    });
+                    if (properties[0] !== undefined) {
+                        var property = properties[0];
+                        var pguid = property.guid;
+
+                        var $formgroup = $("#" + pguid, formobject.form).closest(".form-group");
+                        var save = $formgroup.find(".btn-toolbar")[0];
+
+                        //var tlabel = _.findt.o;
+                        var tlabel = _.find(returntriples, {
+                            p: "http://www.w3.org/2000/01/rdf-schema#label"
+                        }).o
+
+                        var editable = true;
+                        if (property.valueConstraint.editable !== undefined && property.valueConstraint.editable === "false") {
+                            editable = false;
+                        }
+
+                        //is there a type?
+                        if (_.has(property.valueConstraint.valueDataType, "dataTypeURI")){
+                            if (!_.isEmpty(property.valueConstraint.valueDataType.dataTypeURI)){
+                                var typeTriple = {};
+
+                                typeTriple.s = _.find(returntriples, {
+                                    p: "http://www.w3.org/2000/01/rdf-schema#label"
+                                }).s
+                                typeTriple.guid = guid();
+                                typeTriple.p = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"; //rdf:type
+                                typeTriple.o = property.valueConstraint.valueDataType.dataTypeURI;
+                                typeTriple.otype = "uri";
+                                formobject.store.push(typeTriple);
+                                bfeditor.bfestore.store.push(typeTriple);
+                            }
+                        }
+
+                        var bgvars = {
+                            "editable": editable,
+                            "tguid": guid(),
+                            "tlabel": tlabel,
+                            "tlabelhover": tlabel,
+                            "fobjectid": formobject.id,
+                            "inputid": pguid,
+                            "triples": returntriples
+                        };
+                        var $buttongroup = editDeleteButtonGroup(bgvars);
+
+                        $(save).append($buttongroup);
+
+                        $("#" + pguid, formobject.form).val("");
+                        $("#" + pguid, formobject.form).typeahead('val', "");
+                        $("#" + pguid, formobject.form).typeahead('close');
+
+                        if (property.repeatable === "false" || property.valueConstraint.repeatable == "false") {
+                            var $el = $("#" + pguid, formobject.form);
+                            if ($el.is("input")) {
+                                $el.prop("disabled", true);
+                                $el.css("background-color", "#EEEEEE");
+                            } else {
+                                var $buttons = $("div.btn-group", $el).find("button");
+                                $buttons.each(function() {
+                                    $(this).prop("disabled", true);
+                                });
+                            }
+                        }
+                    }
+                });
+            }
+
+            bfestore.storeDedup();
+            $("#bfeditor-debug").html(JSON.stringify(bfestore.store, undefined, " "));
         });
     }
 
@@ -4635,58 +4824,82 @@ bfe.define('src/lookups/qagenreforms', ['require', 'exports', 'module', 'src/loo
     	//setTimeout(function() {
     		return qashared.lookupQA(query, "http://localhost:8000/qalcgft", cache, function(parsedList){
     			 //Testing out writing out to test div
-                
+                var viewIcon = "<i class='fa fa-external-link-square external-link' aria-hidden='true'></i>";
                 $("div#testdiv").html("");
-                var testhtml = "<div class='container'><div class='row'> " + 
-                "<div class='dt col-sm-1'>Labels</div>" + 
-                "<div class='dt col-sm-2'>Note</div>" + 
-                "<div class='dt col-sm-2'>Broader/Narrower</div>" + 
-                "<div class='dt col-sm-3'>&nbsp;</div>" + 
-                "</div>";
+                var testhtml = "<div class='row' style='margin-top:12px;border:1px solid #c0c0c0'> " + 
+                "<div class='dt col-sm-4'>Labels</div>" + 
+                "<div class='dt col-sm-4'>Note</div>" + 
+                "<div class='dt col-sm-4'>Broader/Narrower</div></div>";
                 $.each(parsedlist, function(i, v) {
                 	//testhtml += v["value"] + ":" + v["uri"] + "<br/>";
                 	var label = v["value"];
                 	var uri = v["uri"];
                 	var context = v["context"];
-                	var alternate, broaderNarrower, note = "&nbsp";
+                	var alternate = "&nbsp;", broaderNarrower = "&nbsp;", note = "&nbsp";
                 	
                 	if("Alternate Label" in context && context["Alternate Label"].length > 0) {
-                		alternate = context["Alternate Label"].join("<br/>");
+                		var alternateArray = context["Alternate Label"];
+                		/*alternate = "<ul>";
+                		$.each(alternateArray, function(i, a) {
+                			alternate += "<li>" + a + "</li>";
+                		})
+                		alternate += "</ul>";*/
+                		alternate = "Alternate Labels:<br/>" + exports.createListFromArray(alternateArray);
                 	}
                 	
                 	if("Broader" in context && context["Broader"].length > 0 ) {
                 		broaderNarrower = "Broader: ";
-                		$.each(context["Broader"], function(i, o) {
-                			var label = o["label"];
-                			broaderNarrower += label + " ,"; //fix this later
-                		}) 
-                		broaderNarrower += "<br/>";
+                		var broaderArray = context["Broader"];
+                		var broaderLinks = [];
+                		$.each(broaderArray, function(i, o) {
+                			var olabel = o["label"];
+                			var ouri = o["uri"];
+                			broaderLinks.push("<a target='_blank' href='" + ouri + "'>" + olabel + "</a>");
+                		});           		
+                		broaderNarrower += exports.createListFromArray(broaderLinks);
+                			//broaderLinks.join(", ")  + "<br/>";
                 	}
-                	if("Narrower" in context && context["Narrower"].length > 0) {
-           
-                		$.each(context["Narrower"], function(i, o) {
-                			broaderNarrower += "Narrower :";
-                			var label = o["label"];
-                			broaderNarrower += label + " ,"; //fix this later
-                		}) 
+                	if("Narrower" in context && context["Narrower"].length > 0) {      
+            			broaderNarrower += "Narrower: ";
+            			var narrowerArray = context["Narrower"];
+            			var narrowerLinks = [];
+                			
+            			$.each(narrowerArray, function(i, o) {
+                			var olabel = o["label"];
+                			var ouri = o["uri"];
+                			narrowerLinks.push("<a target='_blank' href='" + ouri + "'>" + olabel + "</a>");
+                		});    
+                		broaderNarrower += exports.createListFromArray(narrowerLinks);
+                			//narrowerLinks.join(", ");
+            		}
                 		
-                	}
+                	
+                	//Assuming one note but can there be more?
                 	if("Note" in context && context["Note"].length > 0) {
                 		note = context["Note"][0];
                 	}
-                	var labels = "<b>" + label + "</b><br/>" + alternate;
-                	testhtml += "<div class='row'> " + 
-                    "<div class='col-sm-1'>" + labels + "</div>" + 
-                    "<div class='col-sm-2'>" + note + "</div>" + 
-                    "<div class='col-sm-2'>" + broaderNarrower + "</div>" + 
-                    "<div class='col-sm-3'><a href='" + v["uri"] + "'>View</a></div>" + 
+                	var labelSelection = "<input type='radio' name='contextResult' uri='" + uri + "' value='" + label + "' style='margin-left:-10px'>&nbsp;";
+                	var labelLink = "<a target='_blank' href='" + uri + "'>" + viewIcon + "</a>";
+                	var labels = labelSelection + "<b>" + label + " " + labelLink + "</b><br/>" + alternate;
+                	testhtml += "<div class='row' style='margin-top:12px;border:1px solid #c0c0c0'> " + 
+                    "<div class='col-sm-4'>" + labels + "</div>" + 
+                    "<div class='col-sm-4'>" + note + "</div>" + 
+                    "<div class='col-sm-4'>" + broaderNarrower + "</div>" + 
                     "</div>";
+                	//Can change this to use click event handler with window.open or review how references handled in bfe in general
                 });
-                testhtml += "</div>";
                 $("div#testdiv").html(testhtml);
     		});        
     		//}, 300);
     	
+    }
+    exports.createListFromArray = function(listArray) {
+    	var returnHtml = "<ul style='padding-left:0px'>";
+    	$.each(listArray, function(i, a) {
+			returnHtml += "<li>" + a + "</li>";
+		})
+		returnHtml += "</ul>";
+    	return returnHtml;
     }
     exports.getResource = qashared.getResourceWithAAP;
 
