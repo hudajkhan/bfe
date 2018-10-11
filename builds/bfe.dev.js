@@ -218,10 +218,13 @@ bfe.define('src/bfe', ['require', 'exports', 'module', 'src/bfestore', 'src/bfel
             "name": "LCSH",
             "load": require("src/lookups/lcsubjects")
         },
+        /*******LD4P2 Adding QA Genre Form lookup ******/
         "http://id.loc.gov/authorities/genreForms": {
             "name": "LCGFT",
             "load": require("src/lookups/qagenreforms") //used to be lcgenreform
         },
+        /*******LD4P2 additionl block end ******/
+
         "http://id.loc.gov/resources/works": {
             "name": "LC-Works",
             "load": require("src/lookups/lcworks")
@@ -1656,12 +1659,21 @@ bfe.define('src/bfe', ['require', 'exports', 'module', 'src/bfestore', 'src/bfel
                             }
 
                             var $inputdiv = $('<div class="col-sm-8"></div>');
-                           
+
+
+
+                            /****LD4P2: Breaking out this section to handle a different form input and interaction for lookup based
+                             * on a particular property http://id.loc.gov/authorities/genreForms.  Not sure how but it would be good to include
+                             * a configuration-level setting, either at the profiles level or independently, that could enable selection
+                             * of a different template or UI interaction
+                             */
                             /**Testing out additional div to show results and trying a different approach for submitting lookup**/
                             //This is property specific
                             var useValuesFrom = property.valueConstraint.useValuesFrom; //"http://id.loc.gov/authorities/genreForms"
+                            //If genre forms, don't do typeahead and connect the
                             if(useValuesFrom.length > 0 && useValuesFrom[0] == "http://id.loc.gov/authorities/genreForms") {
-                            	//NOT typeahead, just enter and hit submit
+                            	//NOT typeahead, just enter and hit submit and have results displayed in table below
+                            	//as opposed to typeahead results
                         		$input = $('<input name="lookupQuery" type="text" class="form-control" data-propertyguid="' + property.guid + '" id="' + property.guid + '" placeholder="' + property.propertyLabel + '" tabindex="' + tabIndices++ + '">');
                         		$inputLookup = $('<button type="button" name="lookupButton" lookupId="' + property.guid + '">Lookup</button>');
                         		$inputLookup.on('click', function() {
@@ -1669,10 +1681,15 @@ bfe.define('src/bfe', ['require', 'exports', 'module', 'src/bfestore', 'src/bfel
                         			var query = $("input#" + lookupId).val();
                         		    //Trying to attach lookup to this, not sure if this is the way to do it or not
                         			var qagenreforms = require("src/lookups/qagenreforms");
+                        			//this lookup code is defined for genreforms and uses the shared QA lookup and the
+                        			//specific handling of the results for a contextual view
                         			qagenreforms.doLookup(query);
                         		});
   	                           var $additionalDiv = $("<div id='testdiv'></div>");
-  	                           //Adding selection handling here
+
+  	                           //Adding selection handling here: When clicking a radio button, that selection
+  	                           //is processed the same way that selecting a typeahead result would
+
   	                           $additionalDiv.on("click", function(event) {
   	                        	   var clickTarget = $(event.target);
   	                        	   if(clickTarget.attr("name") == "contextResult") {
@@ -1681,39 +1698,49 @@ bfe.define('src/bfe', ['require', 'exports', 'module', 'src/bfestore', 'src/bfel
   	                        		   if(clickTarget.is(":checked")) {
 	  	                        		   var uri = clickTarget.attr("uri");
 	  	                        		   var value = clickTarget.val(); //value attribute set to label
-	  	                        		   
+
 	  	                        		   //Create suggestion object to pass to function
 	  	                        		   	var suggestionObject = {
 	  	                        		   			"uri":uri,"value":value
 	  	                        		   	};
 	  	                        		   	var datasetname = "LCGFT";
+	  	                        		   	//this method broke out the typeahead selection code into a separate function
+	  	                        		   	//that can be reused by a typeahead or this contextual display
+	  	                        		   	//the typeahead selection passes along the suggestion object form its results
+	  	                        		   	//that suggestion object is recreated here by getting the uri and value from the selected
+	  	                        		   	//radio button
 	  	                        		   	onTypeaheadSelection(clickTarget, property.guid, event, suggestionObject, datasetname);
 
-	  	                        		   	
   	                        		   }
-  	                        		   
-  	                        		   
+
+
   	                        	   }
   	                           })
-  	                           
-  	                           
+
+  	                            //Append the input to the form
                         		$inputdiv.append($input);
  	                            $inputdiv.append($inputLookup);
 	                            $inputdiv.append($additionalDiv);
-                
-                            } else {
-                            
+
+
+                            }
+
+
+                            //Regular typeahead behavior
+                            else {
+                            	//Typeahead behavior, the typeahead class in input is picked up elsewhere
                         		$input = $('<input type="text" class="typeahead form-control" data-propertyguid="' + property.guid + '" id="' + property.guid + '" placeholder="' + property.propertyLabel + '" tabindex="' + tabIndices++ + '">');
                         		var $input_page = $('<input type="hidden" id="' + property.guid + '_page" class="typeaheadpage" value="1">');
-                                              
+
 	                            $input.on('focus', function() {
 	                                if ($(this).val() === '') // you can also check for minLength
 	                                    $(this).data().ttTypeahead.input.trigger('queryChanged', '');
 	                            });
-	                            
+
 	                            $inputdiv.append($input);
 	                            $inputdiv.append($input_page);
                             }
+                        	/***** LD4P2 editing block end ************/
 
                             $formgroup.append($label);
                             $inputdiv.append($saves);
@@ -3154,7 +3181,7 @@ bfe.define('src/bfe', ['require', 'exports', 'module', 'src/bfestore', 'src/bfel
         	onTypeaheadSelection(input, propertyguid, event, suggestionobject, datasetname);
         });
     }
-    
+
     /**LD4P2: Extracting out typeahead selected functionality which seems to create the RDF that will need to be stored**/
     function onTypeaheadSelection(input, propertyguid, event, suggestionobject, datasetname) {
         bfelog.addMsg(new Error(), "DEBUG", "Typeahead selection made");
@@ -3164,7 +3191,7 @@ bfe.define('src/bfe', ['require', 'exports', 'module', 'src/bfestore', 'src/bfel
         //reset page
         $(input).parent().siblings(".typeaheadpage").val(1);
         var resourceid = $(form).children("div").eq(0).attr("id");
-        var resourceURI = $(form).find("div[data-uri]").eq(0).attr("data-uri");       
+        var resourceURI = $(form).find("div[data-uri]").eq(0).attr("data-uri");
 
         var s = editorconfig.baseURI + resourceid;
         var p = "";
@@ -4505,6 +4532,7 @@ bfe.define('src/lookups/lcsubjects', ['require', 'exports', 'module', 'src/looku
     exports.getResource = lcshared.getResourceWithAAP;
 
 });
+/****LD4P2: QA code for making calls, and specific LOC Genre Form implementation ****/
 //QA version of lcshared
 bfe.define('src/lookups/qashared', ['require', 'exports', 'module'], function(require, exports, module) {
 
@@ -4560,7 +4588,7 @@ bfe.define('src/lookups/qashared', ['require', 'exports', 'module'], function(re
 	        process(triples, property);
     }
 
-      
+
       /**pulling out main lookup code, the only thing that changes between QA requests is the scheme**/
       exports.source = function(query, scheme, process, cache) {
           var rdftype = "rdftype:GenreForm";
@@ -4585,7 +4613,7 @@ bfe.define('src/lookups/qashared', ['require', 'exports', 'module'], function(re
 
       }
 
-      
+
       exports.lookupQA = function(query, scheme, cache, process) {
           if (query.length > 2) {
               u = scheme + "?q=" + query;
@@ -4594,7 +4622,7 @@ bfe.define('src/lookups/qashared', ['require', 'exports', 'module'], function(re
                   dataType: "json", //if data type is jsonp, need to ensure some info
                   success: function(data) {
                       parsedlist = exports.processSuggestions(data, query);
-                     
+
                       var q = scheme + "?q=" + query;
 
                       cache[q] = parsedlist;
@@ -4606,7 +4634,7 @@ bfe.define('src/lookups/qashared', ['require', 'exports', 'module'], function(re
               return [];
           }
       }
-  
+
 
     exports.processSuggestions = function(suggestions, query) {
         var typeahead_source = [];
@@ -4642,33 +4670,35 @@ bfe.define('src/lookups/qashared', ['require', 'exports', 'module'], function(re
 
 
 });
+
 //Creating QA version of lcgenreform processing
 bfe.define('src/lookups/qagenreforms', ['require', 'exports', 'module', 'src/lookups/qashared'], function(require, exports, module) {
     var qashared = require("src/lookups/qashared");
 
     var cache = [];
     //Where else is this used? Is this always the URL of the API?
-    exports.scheme = "http://id.loc.gov/authorities/genreForms";
-
+    //exports.scheme = "http://id.loc.gov/authorities/genreForms";
+    exports.scheme = "http://elr37-dev.library.cornell.edu/qa/search/linked_data/locgenres_ld4l_cache";
     exports.source = function(query, process) {
-		//var scheme = "http://elr37-dev.library.cornell.edu/qa/search/linked_data/locgenres_ld4l_cache";
-		var scheme = "http://localhost:8000/qalcgft";
-		qashared.source(query, scheme, process, cache);
+		//var scheme = "http://localhost:8000/qalcgft";
+		qashared.source(query, exports.scheme, process, cache);
 
     }
-    
+
+    //This method is called to do the lookup which relies on the shared QA lookup code
+    //and then passes a function specifically for displaying the returned results in a context table
     exports.doLookup = function(query) {
     	//URI should not be hardcoded but linked back to scheme or whatever property denotes API call
     	//ookupQA(query, scheme, cache, process)
     	//Not sure what to do with process here other than perhaps write out to template?
     	//setTimeout(function() {
-    		return qashared.lookupQA(query, "http://localhost:8000/qalcgft", cache, function(parsedList){
+    		return qashared.lookupQA(query, exports.scheme, cache, function(parsedList){
     			 //Testing out writing out to test div
                 var viewIcon = "<i class='fa fa-external-link-square external-link' aria-hidden='true'></i>";
                 $("div#testdiv").html("");
-                var testhtml = "<div class='row' style='margin-top:12px;border:1px solid #c0c0c0'> " + 
-                "<div class='dt col-sm-4'>Labels</div>" + 
-                "<div class='dt col-sm-4'>Note</div>" + 
+                var testhtml = "<div class='row' style='margin-top:12px;border:1px solid #c0c0c0'> " +
+                "<div class='dt col-sm-4'>Labels</div>" +
+                "<div class='dt col-sm-4'>Note</div>" +
                 "<div class='dt col-sm-4'>Broader/Narrower</div></div>";
                 $.each(parsedlist, function(index, v) {
                 	//testhtml += v["value"] + ":" + v["uri"] + "<br/>";
@@ -4676,7 +4706,7 @@ bfe.define('src/lookups/qagenreforms', ['require', 'exports', 'module', 'src/loo
                 	var uri = v["uri"];
                 	var context = v["context"];
                 	var alternate = "&nbsp;", broaderNarrower = "&nbsp;", note = "&nbsp";
-                	
+
                 	if("Alternate Label" in context && context["Alternate Label"].length > 0) {
                 		var alternateArray = context["Alternate Label"];
                 		/*alternate = "<ul>";
@@ -4686,7 +4716,7 @@ bfe.define('src/lookups/qagenreforms', ['require', 'exports', 'module', 'src/loo
                 		alternate += "</ul>";*/
                 		alternate = "Alternate Labels:<br/>" + exports.createListFromArray(alternateArray);
                 	}
-                	
+
                 	if("Broader" in context && context["Broader"].length > 0 ) {
                 		broaderNarrower = "Broader: ";
                 		var broaderArray = context["Broader"];
@@ -4695,25 +4725,25 @@ bfe.define('src/lookups/qagenreforms', ['require', 'exports', 'module', 'src/loo
                 			var olabel = o["label"];
                 			var ouri = o["uri"];
                 			broaderLinks.push("<a target='_blank' href='" + ouri + "'>" + olabel + "</a>");
-                		});           		
+                		});
                 		broaderNarrower += exports.createListFromArray(broaderLinks);
                 			//broaderLinks.join(", ")  + "<br/>";
                 	}
-                	if("Narrower" in context && context["Narrower"].length > 0) {      
+                	if("Narrower" in context && context["Narrower"].length > 0) {
             			broaderNarrower += "Narrower: ";
             			var narrowerArray = context["Narrower"];
             			var narrowerLinks = [];
-                			
+
             			$.each(narrowerArray, function(i, o) {
                 			var olabel = o["label"];
                 			var ouri = o["uri"];
                 			narrowerLinks.push("<a target='_blank' href='" + ouri + "'>" + olabel + "</a>");
-                		});    
+                		});
                 		broaderNarrower += exports.createListFromArray(narrowerLinks);
                 			//narrowerLinks.join(", ");
             		}
-                		
-                	
+
+
                 	//Assuming one note but can there be more?
                 	if("Note" in context && context["Note"].length > 0) {
                 		note = context["Note"][0];
@@ -4721,17 +4751,17 @@ bfe.define('src/lookups/qagenreforms', ['require', 'exports', 'module', 'src/loo
                 	var labelSelection = "<input type='radio' name='contextResult' id='contextResult" + index + "' uri='" + uri + "' value='" + label + "' style='margin-left:-10px'>&nbsp;";
                 	var labelLink = "<a target='_blank' href='" + uri + "'>" + viewIcon + "</a>";
                 	var labels = labelSelection + "<b>" + label + " " + labelLink + "</b><br/>" + alternate;
-                	testhtml += "<div class='row' style='margin-top:12px;border:1px solid #c0c0c0'> " + 
-                    "<div class='col-sm-4'>" + labels + "</div>" + 
-                    "<div class='col-sm-4'>" + note + "</div>" + 
-                    "<div class='col-sm-4'>" + broaderNarrower + "</div>" + 
+                	testhtml += "<div class='row' style='margin-top:12px;border:1px solid #c0c0c0'> " +
+                    "<div class='col-sm-4'>" + labels + "</div>" +
+                    "<div class='col-sm-4'>" + note + "</div>" +
+                    "<div class='col-sm-4'>" + broaderNarrower + "</div>" +
                     "</div>";
                 	//Can change this to use click event handler with window.open or review how references handled in bfe in general
                 });
                 $("div#testdiv").html(testhtml);
-    		});        
+    		});
     		//}, 300);
-    	
+
     }
     exports.createListFromArray = function(listArray) {
     	var returnHtml = "<ul style='padding-left:0px'>";
@@ -4744,6 +4774,9 @@ bfe.define('src/lookups/qagenreforms', ['require', 'exports', 'module', 'src/loo
     exports.getResource = qashared.getResourceWithAAP;
 
 });
+
+/***********End LD4P2 block for defining QA and LOC Genre Form****************/
+
 //original lcgenreform
 bfe.define('src/lookups/lcgenreforms', ['require', 'exports', 'module', 'src/lookups/lcshared'], function(require, exports, module) {
     var lcshared = require("src/lookups/lcshared");
