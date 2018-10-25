@@ -4186,8 +4186,11 @@ button.close {
     -webkit-box-shadow:0 5px 10px rgba(0, 0, 0, .2);
     -moz-box-shadow:0 5px 10px rgba(0, 0, 0, .2);
     box-shadow:0 5px 10px rgba(0, 0, 0, .2);
-    height:300px;
+    /*height:300px; commenting out*/
     overflow-y:auto;
+    /**LD4P2 tinkering**/
+    width:700px !important;
+    height:600px;
 }
 
 

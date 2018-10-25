@@ -212,7 +212,7 @@ bfe.define('src/bfe', ['require', 'exports', 'module', 'src/bfestore', 'src/bfel
     var lookups = {
         "http://id.loc.gov/authorities/names": {
             "name": "LCNAF",
-            "load": require("src/lookups/lcnames")
+            "load": require("src/lookups/contextlcnames") //Trying out contextual LC names, used to be lcnames
         },
         "http://id.loc.gov/authorities/subjects": {
             "name": "LCSH",
@@ -1671,57 +1671,108 @@ bfe.define('src/bfe', ['require', 'exports', 'module', 'src/bfestore', 'src/bfel
                             //This is property specific
                             var useValuesFrom = property.valueConstraint.useValuesFrom; //"http://id.loc.gov/authorities/genreForms"
                             //If genre forms, don't do typeahead and connect the
-                            if(useValuesFrom.length > 0 && useValuesFrom[0] == "http://id.loc.gov/authorities/genreForms") {
-                            	//NOT typeahead, just enter and hit submit and have results displayed in table below
-                            	//as opposed to typeahead results
-                        		$input = $('<input name="lookupQuery" type="text" class="form-control" data-propertyguid="' + property.guid + '" id="' + property.guid + '" placeholder="' + property.propertyLabel + '" tabindex="' + tabIndices++ + '">');
-                        		$inputLookup = $('<button type="button" name="lookupButton" lookupId="' + property.guid + '">Lookup</button>');
-                        		$inputLookup.on('click', function() {
-                        			var lookupId = $(this).attr("lookupId");
-                        			var query = $("input#" + lookupId).val();
-                        		    //Trying to attach lookup to this, not sure if this is the way to do it or not
-                        			var qagenreforms = require("src/lookups/qagenreforms");
-                        			//this lookup code is defined for genreforms and uses the shared QA lookup and the
-                        			//specific handling of the results for a contextual view
-                        			qagenreforms.doLookup(query);
-                        		});
-  	                           var $additionalDiv = $("<div id='testdiv'></div>");
-
-  	                           //Adding selection handling here: When clicking a radio button, that selection
-  	                           //is processed the same way that selecting a typeahead result would
-
-  	                           $additionalDiv.on("click", function(event) {
-  	                        	   var clickTarget = $(event.target);
-  	                        	   if(clickTarget.attr("name") == "contextResult") {
-  	                        		   //call the typeahead selection function
-  	                        		   //even though at least one of those lines is irrelevant
-  	                        		   if(clickTarget.is(":checked")) {
-	  	                        		   var uri = clickTarget.attr("uri");
-	  	                        		   var value = clickTarget.val(); //value attribute set to label
-
-	  	                        		   //Create suggestion object to pass to function
-	  	                        		   	var suggestionObject = {
-	  	                        		   			"uri":uri,"value":value
-	  	                        		   	};
-	  	                        		   	var datasetname = "LCGFT";
-	  	                        		   	//this method broke out the typeahead selection code into a separate function
-	  	                        		   	//that can be reused by a typeahead or this contextual display
-	  	                        		   	//the typeahead selection passes along the suggestion object form its results
-	  	                        		   	//that suggestion object is recreated here by getting the uri and value from the selected
-	  	                        		   	//radio button
-	  	                        		   	onTypeaheadSelection(clickTarget, property.guid, event, suggestionObject, datasetname);
-
-  	                        		   }
-
-
-  	                        	   }
-  	                           })
-
-  	                            //Append the input to the form
-                        		$inputdiv.append($input);
- 	                            $inputdiv.append($inputLookup);
-	                            $inputdiv.append($additionalDiv);
-
+                            if(useValuesFrom.length > 0) {
+                        		if(useValuesFrom[0] == "http://id.loc.gov/authorities/genreForms") {
+                            
+	                            	//NOT typeahead, just enter and hit submit and have results displayed in table below
+	                            	//as opposed to typeahead results
+	                        		$input = $('<input name="lookupQuery" type="text" class="form-control" data-propertyguid="' + property.guid + '" id="' + property.guid + '" placeholder="' + property.propertyLabel + '" tabindex="' + tabIndices++ + '">');
+	                        		$inputLookup = $('<button type="button" name="lookupButton" lookupId="' + property.guid + '">Lookup</button>');
+	                        		$inputLookup.on('click', function() {
+	                        			var lookupId = $(this).attr("lookupId");
+	                        			var query = $("input#" + lookupId).val();
+	                        		    //Trying to attach lookup to this, not sure if this is the way to do it or not
+	                        			var qagenreforms = require("src/lookups/qagenreforms");
+	                        			//this lookup code is defined for genreforms and uses the shared QA lookup and the
+	                        			//specific handling of the results for a contextual view
+	                        			qagenreforms.doLookup(query);
+	                        		});
+	  	                           var $additionalDiv = $("<div id='testdiv'></div>");
+	
+	  	                           //Adding selection handling here: When clicking a radio button, that selection
+	  	                           //is processed the same way that selecting a typeahead result would
+	
+	  	                           $additionalDiv.on("click", function(event) {
+	  	                        	   var clickTarget = $(event.target);
+	  	                        	   if(clickTarget.attr("name") == "contextResult") {
+	  	                        		   //call the typeahead selection function
+	  	                        		   //even though at least one of those lines is irrelevant
+	  	                        		   if(clickTarget.is(":checked")) {
+		  	                        		   var uri = clickTarget.attr("uri");
+		  	                        		   var value = clickTarget.val(); //value attribute set to label
+	
+		  	                        		   //Create suggestion object to pass to function
+		  	                        		   	var suggestionObject = {
+		  	                        		   			"uri":uri,"value":value
+		  	                        		   	};
+		  	                        		   	var datasetname = "LCGFT";
+		  	                        		   	//this method broke out the typeahead selection code into a separate function
+		  	                        		   	//that can be reused by a typeahead or this contextual display
+		  	                        		   	//the typeahead selection passes along the suggestion object form its results
+		  	                        		   	//that suggestion object is recreated here by getting the uri and value from the selected
+		  	                        		   	//radio button
+		  	                        		   	onTypeaheadSelection(clickTarget, property.guid, event, suggestionObject, datasetname);
+	
+	  	                        		   }
+	
+	
+	  	                        	   }
+	  	                           })
+	
+	  	                            //Append the input to the form
+	                        		$inputdiv.append($input);
+	 	                            $inputdiv.append($inputLookup);
+		                            $inputdiv.append($additionalDiv);
+                            	}
+                        		
+                        		//LCNAF handling
+                        		else if(useValuesFrom[0] == "http://id.loc.gov/authorities/names") {
+	                        		$input = $('<input name="lookupQuery" type="text" class="form-control" data-propertyguid="' + property.guid + '" id="' + property.guid + '" placeholder="' + property.propertyLabel + '" tabindex="' + tabIndices++ + '">');
+	                        		$inputLookup = $('<button type="button" name="lookupButton" lookupId="' + property.guid + '">Lookup</button>');
+	                        		$inputLookup.on('click', function() {
+	                        			var lookupId = $(this).attr("lookupId");
+	                        			var query = $("input#" + lookupId).val();
+	                        			var lcnames = require("src/lookups/contextlcnames");
+	                        			//this lookup code is defined for names with contextual view
+	                        			lcnames.doLookup(query, fobject);
+	                        		});
+	  	                           var $additionalDiv = $("<div id='testdiv'></div>");
+	
+	  	                           //Adding selection handling here: When clicking a radio button, that selection
+	  	                           //is processed the same way that selecting a typeahead result would
+	
+	  	                           $additionalDiv.on("click", function(event) {
+	  	                        	   var clickTarget = $(event.target);
+	  	                        	   if(clickTarget.attr("name") == "contextResult") {
+	  	                        		   //call the typeahead selection function
+	  	                        		   //even though at least one of those lines is irrelevant
+	  	                        		   if(clickTarget.is(":checked")) {
+		  	                        		   var uri = clickTarget.attr("uri");
+		  	                        		   var value = clickTarget.val(); //value attribute set to label
+	
+		  	                        		   //Create suggestion object to pass to function
+		  	                        		   	var suggestionObject = {
+		  	                        		   			"uri":uri,"value":value
+		  	                        		   	};
+		  	                        		   	var datasetname = "LCNAF";
+		  	                        		   	//this method broke out the typeahead selection code into a separate function
+		  	                        		   	//that can be reused by a typeahead or this contextual display
+		  	                        		   	//the typeahead selection passes along the suggestion object form its results
+		  	                        		   	//that suggestion object is recreated here by getting the uri and value from the selected
+		  	                        		   	//radio button
+		  	                        		   	onTypeaheadSelection(clickTarget, property.guid, event, suggestionObject, datasetname);
+	
+	  	                        		   }
+	
+	
+	  	                        	   }
+	  	                           })
+	
+	  	                            //Append the input to the form
+	                        		$inputdiv.append($input);
+	 	                            $inputdiv.append($inputLookup);
+		                            $inputdiv.append($additionalDiv);
+                        		}
 
                             }
 
@@ -3103,6 +3154,14 @@ bfe.define('src/bfe', ['require', 'exports', 'module', 'src/bfestore', 'src/bfel
             dshash.templates = {
                 header: '<h3>' + lu.name + '</h3>',
                 footer: '<div id="dropdown-footer" class=".col-sm-1"></div>'
+                /**LD4P2: Trying out retrieving context for autocomplete**/
+                ,
+                suggestion: function (data) {
+				                	var htmlToReturn = '<div style="clear:both;float:none"><div style="float:left"><strong>' + data.value + '</strong></div>';
+
+				                	htmlToReturn += '</div>';
+				                    return htmlToReturn;
+                }
                 	/*, Commenting out for now, trying different suggestion tempalte but keepimg original
                 suggestion: function (data) {
                 	var htmlToReturn = '<div style="clear:both;float:none"><div style="float:left"><strong>' + data.value + '</strong></div>';
@@ -4306,6 +4365,7 @@ bfe.define('src/lookups/lcshared', ['require', 'exports', 'module'], function(re
         return typeahead_source;
     }
 
+    /****LD4P2: Getting individual info for process suggestions to help pull out information needed for context*****/
     exports.processSuggestions = function(suggestions, query) {
         var typeahead_source = [];
         if (suggestions[1] !== undefined) {
@@ -4318,6 +4378,7 @@ bfe.define('src/lookups/lcshared', ['require', 'exports', 'module'], function(re
                 } else {
                     var li = l;
                 }
+               //synchronous ajax request does not appear to work for jsonp
 
                 typeahead_source.push({
                     uri: u,
@@ -4532,7 +4593,7 @@ bfe.define('src/lookups/lcsubjects', ['require', 'exports', 'module', 'src/looku
     exports.getResource = lcshared.getResourceWithAAP;
 
 });
-/****LD4P2: QA code for making calls, and specific LOC Genre Form implementation ****/
+/****LD4P2: QA code for making calls, and specific LOC Genre Form implementation, and contextual info ****/
 //QA version of lcshared
 bfe.define('src/lookups/qashared', ['require', 'exports', 'module'], function(require, exports, module) {
 
@@ -4591,8 +4652,12 @@ bfe.define('src/lookups/qashared', ['require', 'exports', 'module'], function(re
 
       /**pulling out main lookup code, the only thing that changes between QA requests is the scheme**/
       exports.source = function(query, scheme, process, cache) {
-          var rdftype = "rdftype:GenreForm";
-
+    	  //I don't think rdftype is in fact ever used, so let's comment it out to test
+          //var rdftype = "rdftype:GenreForm";
+    	  
+    	  //This is specific to how the lookup is being executed against the source, i.e. QA or something else
+    	  //This checs whether the query (the full URL executed?) is in the cache, and if so, return the cached result
+    	  //To abstract this out further, this should be pulled out into a source-specific function/component
           var q = scheme + "?q=" + query;
 
           console.log('q is ' + q);
@@ -4607,8 +4672,9 @@ bfe.define('src/lookups/qashared', ['require', 'exports', 'module'], function(re
               clearTimeout(this.searching);
               process([]);
           }
-          //lcgft
+          //Searching wraps the actual call to lookup in a timeout function
           this.searching = setTimeout(function() {
+        	//Call the lookup function, passing the original query and scheme
           	return exports.lookupQA(query, scheme, cache, process);        }, 300); // 300 ms
 
       }
@@ -4776,7 +4842,289 @@ bfe.define('src/lookups/qagenreforms', ['require', 'exports', 'module', 'src/loo
 });
 
 /***********End LD4P2 block for defining QA and LOC Genre Form****************/
+/*********LD4P2 block for defining name retrieval with context**********/
+bfe.define('src/lookups/contextlcnames', ['require', 'exports', 'module', 'src/lookups/lcshared'], function(require, exports, module) {
+    var lcshared = require("src/lookups/lcshared");
+    var qashared = require("src/lookups/qashared");
 
+
+    var cache = [];
+
+    // This var is required because it is used as an identifier.
+    exports.scheme = "http://id.loc.gov/authorities/names";
+
+    //keep this the same, need to pass formobject somehow
+    exports.source = function(query, process, formobject) {
+
+        //console.log(JSON.stringify(formobject.store));
+
+        var triples = formobject.store;
+
+        var type = "";
+        var hits = _.where(triples, {
+            "p": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
+        })
+        if (hits[0] !== undefined) {
+            type = hits[0].o;
+        }
+        //console.log("type is " + type);
+
+        var scheme = "http://id.loc.gov/authorities/names";
+        hits = _.where(triples, {
+            "p": "http://id.loc.gov/ontologies/bibframe/authoritySource"
+        })
+        if (hits[0] !== undefined) {
+            console.log(hits[0]);
+            scheme = hits[0].o;
+        }
+        //console.log("scheme is " + scheme);
+
+        var rdftype = exports.calculateRdfType(type);
+
+        var q = exports.calculateQ(query, rdftype, scheme);
+
+        if (cache[q]) {
+            process(cache[q]);
+            return;
+        }
+        if (typeof this.searching != "undefined") {
+            clearTimeout(this.searching);
+            process([]);
+        }
+
+        this.searching = setTimeout(function() {
+        	return exports.lookupNames(query, q, scheme, cache, rdftype, process);
+               }, 300); // 300 ms
+
+    }
+    
+    exports.lookupNames = function(query, q, scheme, cache, rdftype, process) {
+        if (query.length > 2 && query.substr(0, 1) != '?') {
+            suggestquery = query.normalize();
+            if (rdftype !== "")
+                suggestquery += "&rdftype=" + rdftype.replace("rdftype:", "")
+                
+            var count = 10; //Setting count to fewer results for now    
+            //Anyway to page through results if needed?
+            u = scheme + "/suggest/?q=" + suggestquery + "&count=" + count;
+
+            $.ajax({
+                url: u,
+                dataType: "jsonp",
+                success: function(data) {
+                    parsedlist = lcshared.processSuggestions(data, query);
+                    cache[q] = parsedlist;
+                    return process(parsedlist);
+                }
+            });
+        } else if (query.length > 2) {
+            u = "http://id.loc.gov/search/?format=jsonp&start=1&count=" + count + "&q=" + q.replace("?", "");
+            $.ajax({
+                url: u,
+                dataType: "jsonp",
+                success: function(data) {
+                    parsedlist = lcshared.processATOM(data, query);
+                    cache[q] = parsedlist;
+                    return process(parsedlist);
+                }
+            });
+        } else {
+            return [];
+        }
+
+    }
+
+    /*
+
+        subjecturi hasAuthority selected.uri
+        subjecturi  bf:label selected.value
+    */
+    exports.getResource = lcshared.getResourceWithAAP;
+    
+    exports.calculateRdfType = function(type) {
+    	var rdftype = "";
+        if (type == "http://www.loc.gov/mads/rdf/v1#PersonalName") {
+            rdftype = "rdftype:PersonalName";
+        } else if (type == "http://id.loc.gov/ontologies/bibframe/Topic") {
+            rdftype = "(rdftype:Topic OR rdftype:ComplexSubject)";
+        } else if (type == "http://www.loc.gov/mads/rdf/v1#place") {
+            rdftype = "rdftype:Geographic";
+        } else if (type == "http://www.loc.gov/mads/rdf/v1#organization") {
+            rdftype = "rdftype:CorporateName";
+        } else if (type == "http://www.loc.gov/mads/rdf/v1#family") {
+            //rdftype = "rdftype:FamilyName";
+            rdftype = "rdftype:PersonalName";
+        } else if (type == "http://www.loc.gov/mads/rdf/v1#meeting") {
+            rdftype = "rdftype:ConferenceName";
+        } else if (type == "http://www.loc.gov/mads/rdf/v1#jurisdiction") {
+            rdftype = "rdftype:CorporateName";
+        } else if (type == "http://id.loc.gov/ontologies/bibframe/genreForm") {
+            rdftype = "rdftype:GenreForm";
+        } else if (type == "http://id.loc.gov/ontologies/bibframe/role") {
+            rdftype = "rdftype:Role";
+        }
+        return rdftype;
+    }
+    exports.calculateQ = function(query, rdftype, scheme) {
+
+        var q = "";
+        if (scheme !== "" && rdftype !== "") {
+            q = 'cs:' + scheme + ' AND ' + rdftype;
+        } else if (rdftype !== "") {
+            q = rdftype;
+        } else if (scheme !== "") {
+            q = 'cs:' + scheme;
+        }
+        if (q !== "") {
+            q = q + ' AND (' + query + ' OR ' + query + '* OR *' + query + '*)';
+        } else {
+            q = '(' + query + ' OR ' + query + '* OR *' + query + '*)';
+        }
+        //console.log('q is ' + q);
+        q = encodeURI(q);
+        return q;
+
+    }
+
+   
+    exports.doLookup = function(query, formobject) {
+    		//(query, q, exports.scheme, cache, rdftype, process)
+    	   var triples = formobject.store;
+
+           var type = "";
+           var hits = _.where(triples, {
+               "p": "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
+           })
+           if (hits[0] !== undefined) {
+               type = hits[0].o;
+           }
+           //console.log("type is " + type);
+
+           var scheme = "http://id.loc.gov/authorities/names";
+           hits = _.where(triples, {
+               "p": "http://id.loc.gov/ontologies/bibframe/authoritySource"
+           })
+           if (hits[0] !== undefined) {
+               console.log(hits[0]);
+               scheme = hits[0].o;
+           }
+           //console.log("scheme is " + scheme);
+
+           var rdftype = exports.calculateRdfType(type);
+
+           var q = exports.calculateQ(query, rdftype, scheme);
+        	
+    		return exports.lookupNames(query, q, scheme, cache, rdftype, function(parsedList){
+    			 //Testing out writing out to test div
+                var viewIcon = "<i class='fa fa-external-link-square external-link' aria-hidden='true'></i>";
+                $("div#testdiv").html("");
+                var testhtml = "";
+                //No header row, just straight up search results
+                /*var testhtml = "<div class='row' style='margin-top:12px;border:1px solid #c0c0c0'> " +
+                "<div class='dt col-sm-4'>Labels</div>" +
+                "<div class='dt col-sm-4'></div>" +
+                "<div class='dt col-sm-4'>Context 2</div></div>";*/
+                $.each(parsedlist, function(index, v) {
+                	//testhtml += v["value"] + ":" + v["uri"] + "<br/>";
+                	var label = v["value"];
+                	var uri = v["uri"];
+                	var context = v["context"];
+                	//if RWO, then show here?
+                    //TODO: get rid of id since non-unique and check functionality
+                	var labelSelection = "<input type='radio' name='contextResult' id='contextResult" + index + "' uri='" + uri + "' value='" + label + "' style='margin-left:-10px'>&nbsp;";
+                	var labelLink = "<a target='_blank' href='" + uri + "'>" + viewIcon + "</a>";
+                	var labels = labelSelection + "<b>" + label + " " + labelLink + "</b>";
+                	labels += "<div class='rwoInfo'></div>";  
+                	testhtml += "<div class='row contextInfo' style='margin-top:12px;border:1px solid #c0c0c0' uri='" + uri + "'> " +
+                    "<div class='col-sm-4'>" + labels + "</br>" + 
+                    "</div>"+ 
+                    "<div class='sameAsInfo col-sm-4'></div>" + 
+                    "</div>";
+                });
+                $("div#testdiv").html(testhtml);
+                
+                //Ajax requests to get info needed to populate context
+                //Do a call on the individual URI to retrieve info
+                $.each(parsedlist, function(index, v) {
+                	var u = v["uri"];
+                	var context = {};
+	                $.ajax({
+					            url: u + ".jsonp",
+					            dataType: "jsonp",
+					            success: function(data) {
+					                data.forEach(function(resource) {
+					                    if (resource["@id"] === u) {
+					                    	var rwoURI = "http://www.loc.gov/mads/rdf/v1#identifiesRWO";
+					                    	var sameAsURI = "http://www.w3.org/2004/02/skos/core#exactMatch";
+					                    	if(rwoURI in resource) {
+					                    		var rwoArray = resource[rwoURI];
+					                    		context["rwo"] = rwoArray;
+					                    	}
+					                    	if(sameAsURI in resource) {
+					                    		var sameAsArray = resource[sameAsURI];
+					                    		context["sameAs"] = sameAsArray;
+					                    	}
+					                    	
+					                    	
+					                    	var rwoLink = "";
+					                    	var sameAsLink = "";
+					                    	if("rwo" in context) {
+					                    		var rwoArray = context["rwo"];
+					                    		var rlen = rwoArray.length;
+					                    		var r;
+					                    		if(rlen > 0 && ("@id" in rwoArray[0])) {
+					                    			rwoLink = "RWO"; 
+					                    			var rwo = rwoArray[0]["@id"];
+					                    			rwoLink = "<a target='_blank' href='" + rwo + "'>" + rwoLink + "</a><br/>";
+					                    		}
+					                    	}
+					                    	if("sameAs" in context) {
+					                    		var sameAsArray = context["sameAs"];
+					                    		var slen = sameAsArray.length;
+					                    		var s;
+					                    		if(slen > 0) sameAsLink = "SAME AS: ";
+					                    		for(s = 0; s < slen; s++) {
+					                    			var sameAs = sameAsArray[s];
+					                    			if("@id" in sameAs) {
+					                    				var linkLabel = "Link";
+					                    				var linkURL = sameAs["@id"];
+					                    				if(linkURL.startsWith("http://viaf.org")) linkLabel = "VIAF";
+					                    				sameAsLink += "<a target='_blank' href='" + linkURL + "'>" + linkLabel + "</a> ";
+					                    			}
+					                    		}
+					                    		sameAsLink += "<br/>";
+					                    	}
+					                    	
+					                    	$("div.contextInfo[uri='" + u + "'] div.rwoInfo").append(rwoLink);
+					                    	$("div.contextInfo[uri='" + u + "'] div.sameAsInfo").append(sameAsLink);
+
+					                    	
+					                    	
+					                    }
+					                });
+					            }
+	                }); //ajax requestion for individual
+                
+                }); //parsed list 
+    		}); 
+
+    }
+    exports.createListFromArray = function(listArray) {
+    	var returnHtml = "<ul style='padding-left:0px'>";
+    	$.each(listArray, function(i, a) {
+			returnHtml += "<li>" + a + "</li>";
+		})
+		returnHtml += "</ul>";
+    	return returnHtml;
+    }
+
+
+
+});
+
+
+
+/*********End LD4P2 block for defining name retrieval with context *********/
 //original lcgenreform
 bfe.define('src/lookups/lcgenreforms', ['require', 'exports', 'module', 'src/lookups/lcshared'], function(require, exports, module) {
     var lcshared = require("src/lookups/lcshared");
