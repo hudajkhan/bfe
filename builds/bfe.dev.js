@@ -5052,6 +5052,7 @@ bfe.define('src/lookups/contextlcnames', ['require', 'exports', 'module', 'src/l
 					            url: u + ".jsonp",
 					            dataType: "jsonp",
 					            success: function(data) {
+					            	var rwoCalls = [];
 					                data.forEach(function(resource) {
 					                    if (resource["@id"] === u) {
 					                    	var rwoURI = "http://www.loc.gov/mads/rdf/v1#identifiesRWO";
@@ -5075,7 +5076,9 @@ bfe.define('src/lookups/contextlcnames', ['require', 'exports', 'module', 'src/l
 					                    		if(rlen > 0 && ("@id" in rwoArray[0])) {
 					                    			rwoLink = "RWO"; 
 					                    			var rwo = rwoArray[0]["@id"];
+					                    			rwoCalls.push(rwo);
 					                    			rwoLink = "<a target='_blank' href='" + rwo + "'>" + rwoLink + "</a><br/>";
+					                    			rwoLink += "<div class='rwoMoreInfo' uri='" + rwo + "'></div>";
 					                    		}
 					                    	}
 					                    	if("sameAs" in context) {
@@ -5102,6 +5105,98 @@ bfe.define('src/lookups/contextlcnames', ['require', 'exports', 'module', 'src/l
 					                    	
 					                    }
 					                });
+					                //With divs appended with RWO and same AS info, now request RWO info and parse results and append
+					                var clen = rwoCalls.length;
+					                var c;
+					                for(c = 0; c < clen; c++) {
+					                	var rwoCall = rwoCalls[c];
+					                    $.ajax({
+					                    	//RWO objects seem ok with jsonld call
+								            url: rwoCall + ".jsonld",
+								            success: function(data) {
+								            	//Create hash with id as key to enable easier retrieval of info later
+								            	var dataHash = {};
+								            	$.each(data, function(index, value) {
+								            		if("@id" in value) {
+								            			var dataId = value["@id"];
+								            			dataHash[dataId] = value;
+								            		}
+								            	});
+								            	
+								            	//Get the object with the uri
+								            	var rwoOutput = "";
+								            	var rwoObject = dataHash[rwoCall];
+								            	console.log(" data has ");
+								            	console.log(dataHash);
+								            	console.log("rwo boject");
+								            	console.log(rwoObject);
+								            	//Keys - there may be more (or different) but this is just to demonstrate
+								            	//these should be within the object
+								            	var bdateURI = "http://www.loc.gov/mads/rdf/v1#birthDate";
+								            	var ddateURI = "http://www.loc.gov/mads/rdf/v1#deathDate";
+								            	var affiliationURI = "http://www.loc.gov/mads/rdf/v1#hasAffiliation";
+								            	var birthplaceURI = "http://www.loc.gov/mads/rdf/v1#birthPlace";
+								            	var fieldOfActivityURI = "http://www.loc.gov/mads/rdf/v1#fieldOfActivity";
+								            	var occupationURI = "http://www.loc.gov/mads/rdf/v1#occupation";
+								            	var labelURI = "http://www.w3.org/2000/01/rdf-schema#label";
+								            	var authLabelURI = "http://www.loc.gov/mads/rdf/v1#authoritativeLabel";
+								            	//Birth and death date
+								            	
+								            	if(bdateURI in rwoObject && rwoObject[bdateURI].length > 0) {
+								            		var bdateArray = rwoObject[bdateURI];
+								            		$.each(bdateArray, function(index, value) {
+									            		var nodeURI = value["@id"];
+									            		console.log("birth" + nodeURI);
+									            		if(nodeURI in dataHash) {
+									            			var nodeObject = dataHash[nodeURI];
+									            			if(labelURI in nodeObject && nodeObject[labelURI].length > 0) {
+									            				var labelArray = nodeObject[labelURI];
+									            				var birthDate = labelArray[0]["@value"];
+									            				rwoOutput += "<br/>Dates:" + birthDate + " - ";
+									            			}
+									            		}
+								            		});
+								            	}
+								            	
+								            	if(ddateURI in rwoObject && rwoObject[ddateURI].length > 0) {
+								            		var ddateArray = rwoObject[ddateURI];
+								            		$.each(ddateArray, function(index, value) {
+									            		var nodeURI = value["@id"];
+									            		console.log("death" + nodeURI);
+									            		if(nodeURI in dataHash) {
+									            			var nodeObject = dataHash[nodeURI];
+									            			if(labelURI in nodeObject && nodeObject[labelURI].length > 0) {
+									            				var deathDate = nodeObject[labelURI][0]["@value"];
+									            				rwoOutput += deathDate;
+									            			}
+									            		}
+								            		});
+								            	}
+								            	
+								            	//Occupation
+								            	if(occupationURI in rwoObject && rwoObject[occupationURI].length > 0) {
+								            		var occupationArray = rwoObject[occupationURI];
+								            		rwoOutput += "<br/>";
+								            		$.each(occupationArray, function(index, value) {
+								    
+									            		var nodeURI = value["@id"];
+									            		console.log("occupation" + nodeURI);
+									            		if(nodeURI in dataHash) {
+									            			var nodeObject = dataHash[nodeURI];
+									            			if(authLabelURI in nodeObject && nodeObject[authLabelURI].length > 0 ) {
+									            				var occupation = nodeObject[authLabelURI][0]["@value"];
+									            				rwoOutput += occupation + " ";
+									            			}
+									            		}
+									            	});
+								            	}
+								            	
+								            	//Get rwoInfo array
+								            	$("div.rwoMoreInfo[uri='" + rwoCall + "']").append(rwoOutput);
+								                
+								            }
+					                    });
+					                }
 					            }
 	                }); //ajax requestion for individual
                 
