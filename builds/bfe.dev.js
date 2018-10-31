@@ -5053,6 +5053,7 @@ bfe.define('src/lookups/contextlcnames', ['require', 'exports', 'module', 'src/l
 					            dataType: "jsonp",
 					            success: function(data) {
 					            	var rwoCalls = [];
+					            	var viafURIs = [];
 					                data.forEach(function(resource) {
 					                    if (resource["@id"] === u) {
 					                    	var rwoURI = "http://www.loc.gov/mads/rdf/v1#identifiesRWO";
@@ -5091,8 +5092,14 @@ bfe.define('src/lookups/contextlcnames', ['require', 'exports', 'module', 'src/l
 					                    			if("@id" in sameAs) {
 					                    				var linkLabel = "Link";
 					                    				var linkURL = sameAs["@id"];
-					                    				if(linkURL.startsWith("http://viaf.org")) linkLabel = "VIAF";
-					                    				sameAsLink += "<a target='_blank' href='" + linkURL + "'>" + linkLabel + "</a> ";
+					                    				var linkAttr = "";
+					                    				if(linkURL.startsWith("http://viaf.org")) {
+					                    					linkLabel = "VIAF";
+					                    					linkAttr = " viaf='" + linkURL + "' ";
+					                    					viafURIs.push(linkURL);
+					                    				}
+					                    				sameAsLink += "<a target='_blank' href='" + linkURL + "'" + linkAttr + ">" + linkLabel + "</a> ";
+					                    				sameAsLink += "<span " + linkAttr + "class='wikidata'></span>";
 					                    			}
 					                    		}
 					                    		sameAsLink += "<br/>";
@@ -5187,6 +5194,32 @@ bfe.define('src/lookups/contextlcnames', ['require', 'exports', 'module', 'src/l
 								            }
 					                    });
 					                }
+					                
+					              //Get VIAF
+					             $.each(viafURIs, function(i, v) {
+					            	//Get rdf.xml version
+					            	 var vurl = v;
+					            	 if(v.endsWith("#skos:Concept")) {
+					            		 vurl = v.split("#skos:Concept")[0];
+					            		 
+					            	 }
+					            	 //vurl = "http://viaf.org/viaf/51711347";
+					            	 var requrl = vurl + "/rdf.xml";
+					            	 console.log(requrl);
+					            	 $.ajax({
+					            		 url:requrl,
+			
+					            		 success:function(response, status, xhr) {
+					            			 console.log("success for " + requrl);
+					            			 console.log(response);
+					            			 var $xml = $(response);
+					            			 var $desc = $xml.find("rdf\\:Description[rdf\\:about='" + vurl + "']");
+					            			 $desc.find("schema\\:sameAs").each(function(i){
+					            				
+					            			 });
+					            		 }
+				            		 });
+					             });
 					            }
 	                }); //ajax requestion for individual
                 
