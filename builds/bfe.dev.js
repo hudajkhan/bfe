@@ -1736,7 +1736,7 @@ bfe.define('src/bfe', ['require', 'exports', 'module', 'src/bfestore', 'src/bfel
 	                        			//this lookup code is defined for names with contextual view
 	                        			lcnames.doLookup(query, fobject);
 	                        		});
-	  	                           var $additionalDiv = $("<div id='testdiv'></div>");
+	  	                           var $additionalDiv = $("<div id='testdiv' style='margin-left:-80px'></div>");
 	
 	  	                           //Adding selection handling here: When clicking a radio button, that selection
 	  	                           //is processed the same way that selecting a typeahead result would
@@ -4904,7 +4904,7 @@ bfe.define('src/lookups/contextlcnames', ['require', 'exports', 'module', 'src/l
             if (rdftype !== "")
                 suggestquery += "&rdftype=" + rdftype.replace("rdftype:", "")
                 
-            var count = 10; //Setting count to fewer results for now    
+            var count = 20; //Setting count to fewer results for now    
             //Anyway to page through results if needed?
             u = scheme + "/suggest/?q=" + suggestquery + "&count=" + count;
 
@@ -5036,7 +5036,7 @@ bfe.define('src/lookups/contextlcnames', ['require', 'exports', 'module', 'src/l
                 	var labels = labelSelection + "<b>" + label + " " + labelLink + "</b>";
                 	labels += "<div class='rwoInfo'></div>";  
                 	testhtml += "<div class='row contextInfo' style='margin-top:12px;border:1px solid #c0c0c0' uri='" + uri + "'> " +
-                    "<div class='col-sm-4'>" + labels + "</br>" + 
+                    "<div class='col-sm-8'>" + labels + "</br>" + 
                     "</div>"+ 
                     "<div class='sameAsInfo col-sm-4'></div>" + 
                     "</div>";
@@ -5141,55 +5141,45 @@ bfe.define('src/lookups/contextlcnames', ['require', 'exports', 'module', 'src/l
 								            	var labelURI = "http://www.w3.org/2000/01/rdf-schema#label";
 								            	var authLabelURI = "http://www.loc.gov/mads/rdf/v1#authoritativeLabel";
 								            	//Birth and death date
+								            	var birthDates = exports.getInfoForURIFromHash(bdateURI, rwoObject, dataHash, labelURI);
+								            	var deathDates = exports.getInfoForURIFromHash(ddateURI, rwoObject, dataHash, labelURI);
+								            	var birthplace = exports.getInfoForURIFromHash(birthplaceURI, rwoObject, dataHash, labelURI);
+								            	var occupations = exports.getInfoForURIFromHash(occupationURI, rwoObject, dataHash, authLabelURI);
+								            	var fieldOfActivity = exports.getInfoForURIFromHash(fieldOfActivityURI, rwoObject, dataHash, labelURI);
+								            	var affiliation = exports.getInfoForURIFromHash(affiliationURI, rwoObject, dataHash, labelURI);
+
+								            	//rwoOutput += "<br/>Dates:" + birthDate + " - ";
 								            	
-								            	if(bdateURI in rwoObject && rwoObject[bdateURI].length > 0) {
-								            		var bdateArray = rwoObject[bdateURI];
-								            		$.each(bdateArray, function(index, value) {
-									            		var nodeURI = value["@id"];
-									            		console.log("birth" + nodeURI);
-									            		if(nodeURI in dataHash) {
-									            			var nodeObject = dataHash[nodeURI];
-									            			if(labelURI in nodeObject && nodeObject[labelURI].length > 0) {
-									            				var labelArray = nodeObject[labelURI];
-									            				var birthDate = labelArray[0]["@value"];
-									            				rwoOutput += "<br/>Dates:" + birthDate + " - ";
-									            			}
-									            		}
-								            		});
+								            	//rwoOutput += deathDate;
+								            	var birthOrDeathAvailable = (birthDates.length > 0 || deathDates.length > 0);
+								            	if(birthOrDeathAvailable) {
+								            		rwoOutput += "Dates: ";
 								            	}
 								            	
-								            	if(ddateURI in rwoObject && rwoObject[ddateURI].length > 0) {
-								            		var ddateArray = rwoObject[ddateURI];
-								            		$.each(ddateArray, function(index, value) {
-									            		var nodeURI = value["@id"];
-									            		console.log("death" + nodeURI);
-									            		if(nodeURI in dataHash) {
-									            			var nodeObject = dataHash[nodeURI];
-									            			if(labelURI in nodeObject && nodeObject[labelURI].length > 0) {
-									            				var deathDate = nodeObject[labelURI][0]["@value"];
-									            				rwoOutput += deathDate;
-									            			}
-									            		}
-								            		});
+								            	rwoOutput += birthDates.join(" ");
+								            	if(birthOrDeathAvailable) {rwoOutput += " - ";}
+								            	rwoOutput += deathDates.join(" ");
+								            	if(birthOrDeathAvailable) rwoOutput += "<br/>";
+								            	//birthplace
+								            	if(birthplace.length) {
+								            		rwoOutput += "Birthplace: " + birthplace.join(" ") + "<br/>";
 								            	}
-								            	
-								            	//Occupation
-								            	if(occupationURI in rwoObject && rwoObject[occupationURI].length > 0) {
-								            		var occupationArray = rwoObject[occupationURI];
-								            		rwoOutput += "<br/>";
-								            		$.each(occupationArray, function(index, value) {
-								    
-									            		var nodeURI = value["@id"];
-									            		console.log("occupation" + nodeURI);
-									            		if(nodeURI in dataHash) {
-									            			var nodeObject = dataHash[nodeURI];
-									            			if(authLabelURI in nodeObject && nodeObject[authLabelURI].length > 0 ) {
-									            				var occupation = nodeObject[authLabelURI][0]["@value"];
-									            				rwoOutput += occupation + " ";
-									            			}
-									            		}
-									            	});
+								            	//occupation
+								            	if(occupations.length) {
+								            		rwoOutput += "Occupation: ";
+								            		rwoOutput += occupations.join(", ") + "<br/>";
 								            	}
+								            	//field of activity
+								            	if(fieldOfActivity.length) {
+								            		rwoOutput += "Field of activity: ";
+								            		rwoOutput += fieldOfActivity.join(", ") + "<br/>";
+								            	}
+								            	//affiliation
+								            	if(affiliation.length) {
+								            		rwoOutput += "Affiliation: ";
+								            		rwoOutput += affiliation.join(", ") + "<br/>";
+								            	}
+								            
 								            	
 								            	//Get rwoInfo array
 								            	$("div.rwoMoreInfo[uri='" + rwoCall + "']").append(rwoOutput);
@@ -5204,6 +5194,29 @@ bfe.define('src/lookups/contextlcnames', ['require', 'exports', 'module', 'src/l
     		}); 
 
     }
+    
+    //Get value for particular URI where the value points to a blank node or URI elsewhere in the hash
+    exports.getInfoForURIFromHash = function(uri, resultObject, dataHash, valueUri) {
+    	var resultArray = [];
+    	if(uri in resultObject && resultObject[uri].length > 0) {
+    		var valueArray = resultObject[uri];
+    		$.each(valueArray, function(index, value) {
+        		var nodeURI = value["@id"];
+        		//this is the URI for another object
+        		if(nodeURI in dataHash) {
+        			//return the object in the datahash associated with this node URI
+        			var nodeObject = dataHash[nodeURI];
+        			//the URI we want to use to retrieve label or some other value
+        			if(valueUri in nodeObject && nodeObject[valueUri].length > 0) {
+        				var nodeValueArray = nodeObject[valueUri];
+        				var nodeValue = nodeValueArray[0]["@value"];
+        				resultArray.push(nodeValue);
+        			}
+        		}
+    		});
+    	}
+    	return resultArray;
+    },
     exports.createListFromArray = function(listArray) {
     	var returnHtml = "<ul style='padding-left:0px'>";
     	$.each(listArray, function(i, a) {
