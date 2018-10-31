@@ -1736,7 +1736,7 @@ bfe.define('src/bfe', ['require', 'exports', 'module', 'src/bfestore', 'src/bfel
 	                        			//this lookup code is defined for names with contextual view
 	                        			lcnames.doLookup(query, fobject);
 	                        		});
-	  	                           var $additionalDiv = $("<div id='testdiv' style='margin-left:-80px'></div>");
+	  	                           var $additionalDiv = $("<div id='testdiv' style='margin-left:-100px'></div>");
 	
 	  	                           //Adding selection handling here: When clicking a radio button, that selection
 	  	                           //is processed the same way that selecting a typeahead result would
@@ -5086,7 +5086,7 @@ bfe.define('src/lookups/contextlcnames', ['require', 'exports', 'module', 'src/l
 					                    		var sameAsArray = context["sameAs"];
 					                    		var slen = sameAsArray.length;
 					                    		var s;
-					                    		if(slen > 0) sameAsLink = "SAME AS: ";
+					                    		if(slen > 0) sameAsLink = "";
 					                    		for(s = 0; s < slen; s++) {
 					                    			var sameAs = sameAsArray[s];
 					                    			if("@id" in sameAs) {
@@ -5100,6 +5100,7 @@ bfe.define('src/lookups/contextlcnames', ['require', 'exports', 'module', 'src/l
 					                    				}
 					                    				sameAsLink += "<a target='_blank' href='" + linkURL + "'" + linkAttr + ">" + linkLabel + "</a> ";
 					                    				sameAsLink += "<span " + linkAttr + "class='wikidata'></span>";
+					                    				sameAsLink += "<span " + linkAttr + "class='isni'></span>";
 					                    			}
 					                    		}
 					                    		sameAsLink += "<br/>";
@@ -5210,12 +5211,30 @@ bfe.define('src/lookups/contextlcnames', ['require', 'exports', 'module', 'src/l
 					            		 url:requrl,
 			
 					            		 success:function(response, status, xhr) {
-					            			 console.log("success for " + requrl);
-					            			 console.log(response);
 					            			 var $xml = $(response);
-					            			 var $desc = $xml.find("rdf\\:Description[rdf\\:about='" + vurl + "']");
-					            			 $desc.find("schema\\:sameAs").each(function(i){
-					            				
+					            			 //use original url with #skos:Concept, use focus to find URI of object we are now looking at
+					            			 var $desc = $xml.find("rdf\\:Description[rdf\\:about='" + v + "']");
+					            			 //$desc.find("schema\\:sameAs").each(function(i){
+					            			 var resultURI = vurl;
+					            			 $desc.find("foaf\\:focus").each(function(i){
+					            				 resultURI = $(this).attr("rdf:resource");					            				 
+					            			 });
+					            			 var $resultNode = $xml.find("rdf\\:Description[rdf\\:about='" + resultURI + "']");
+					            			 $resultNode.find("schema\\:sameAs").each(function(i){
+					            				 var sameAs = $(this).attr("rdf:resource");
+					            				 if(sameAs.startsWith("http://www.wikidata") || sameAs.indexOf("wikidata") > 0) {
+					            					 //v is the original URI saved when retrieving from authority
+					            					 var linkLabel = "Wikidata";
+					            					 var wikihtml = "<a target='_blank' href='" + sameAs + "'>" + linkLabel + "</a> ";
+					            					 $("span.wikidata[viaf='" + v + "']").append("&nbsp;" + wikihtml);
+					            				 }
+					            				 
+					            				 if(sameAs.indexOf("isni") > 0) {
+					            					 //v is the original URI saved when retrieving from authority
+					            					 var linkLabel = "ISNI";
+					            					 var isnihtml = "<a target='_blank' href='" + sameAs + "'>" + linkLabel + "</a> ";
+					            					 $("span.isni[viaf='" + v + "']").append("&nbsp;" + isnihtml);
+					            				 }
 					            			 });
 					            		 }
 				            		 });
