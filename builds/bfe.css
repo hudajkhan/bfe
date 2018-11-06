@@ -3836,6 +3836,12 @@ button.close {
   .modal-sm {
     width: 300px;
   }
+  /*
+  LD4P2: Extending width
+  */
+  .modal-extended-dialog {
+  	width: 95% !important;
+  }
 }
 @media (min-width: 992px) {
   .modal-lg {

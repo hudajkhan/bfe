@@ -1687,7 +1687,7 @@ bfe.define('src/bfe', ['require', 'exports', 'module', 'src/bfestore', 'src/bfel
 	                        			//specific handling of the results for a contextual view
 	                        			qagenreforms.doLookup(query);
 	                        		});
-	  	                           var $additionalDiv = $("<div id='testdiv'></div>");
+	  	                           var $additionalDiv = $("<div id='testdiv' style='margin-left:-100px'></div>");
 	
 	  	                           //Adding selection handling here: When clicking a radio button, that selection
 	  	                           //is processed the same way that selecting a typeahead result would
@@ -2578,10 +2578,10 @@ bfe.define('src/bfe', ['require', 'exports', 'module', 'src/bfestore', 'src/bfel
     // inputID is the ID of hte DOM element within the loadtemplate form
     // triples is the base data.
     function openModal(callingformobjectid, loadtemplate, resourceURI, inputID, triples) {
-
+    	/**LD4P2: Adding extended modal dialog class here to enable wider modals**/
         // Modals
         var modal = '<div class="modal fade" id="bfeditor-modal-modalID" tabindex="' + tabIndices++ + '" role="dialog" aria-labelledby="myModalLabel" aria-hidden="true"> \
-            <div class="modal-dialog"> \
+            <div class="modal-dialog modal-extended-dialog"> \
                 <div class="modal-content"> \
                     <div class="modal-header"> \
                         <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button> \
@@ -4851,8 +4851,24 @@ bfe.define('src/lookups/contextlcnames', ['require', 'exports', 'module', 'src/l
     var cache = [];
 
     // This var is required because it is used as an identifier.
-    exports.scheme = "http://id.loc.gov/authorities/names";
+    //exports.scheme = "http://id.loc.gov/authorities/names";
+    
+    var qashared = require("src/lookups/qashared");
 
+    var cache = [];
+    //Where else is this used? Is this always the URL of the API?
+    //exports.scheme = "http://id.loc.gov/authorities/genreForms";
+    exports.scheme = "http://elr37-dev.library.cornell.edu/qa/search/linked_data/locnames_ld4l_cache";
+    exports.source = function(query, process) {
+		qashared.source(query, exports.scheme, process, cache);
+
+    }
+
+  
+    
+    //This is what would be used if we were using the regular lcnaf lookup
+    
+    /*
     //keep this the same, need to pass formobject somehow
     exports.source = function(query, process, formobject) {
 
@@ -4934,11 +4950,7 @@ bfe.define('src/lookups/contextlcnames', ['require', 'exports', 'module', 'src/l
 
     }
 
-    /*
-
-        subjecturi hasAuthority selected.uri
-        subjecturi  bf:label selected.value
-    */
+   
     exports.getResource = lcshared.getResourceWithAAP;
     
     exports.calculateRdfType = function(type) {
@@ -4986,7 +4998,11 @@ bfe.define('src/lookups/contextlcnames', ['require', 'exports', 'module', 'src/l
 
     }
 
-   
+    */
+    
+   /**Would use this with regular LC names lookup**/
+    
+    /*
     exports.doLookup = function(query, formobject) {
     		//(query, q, exports.scheme, cache, rdftype, process)
     	   var triples = formobject.store;
@@ -5015,10 +5031,51 @@ bfe.define('src/lookups/contextlcnames', ['require', 'exports', 'module', 'src/l
            var q = exports.calculateQ(query, rdftype, scheme);
         	
     		return exports.lookupNames(query, q, scheme, cache, rdftype, function(parsedList){
+    		*/
+    
+    exports.doLookup = function(query) {
+    	//URI should not be hardcoded but linked back to scheme or whatever property denotes API call
+    	//ookupQA(query, scheme, cache, process)
+    	//Not sure what to do with process here other than perhaps write out to template?
+    	//setTimeout(function() {
+    		return qashared.lookupQA(query, exports.scheme, cache, function(parsedList){
     			 //Testing out writing out to test div
-                var viewIcon = "<i class='fa fa-external-link-square external-link' aria-hidden='true'></i>";
+                //var viewIcon = "<i class='fa fa-external-link-square external-link' aria-hidden='true'></i>";
+                var viewIcon = "<i class='fa fa-chevron-right external-link' aria-hidden='true'></i>";
+
                 $("div#testdiv").html("");
                 var testhtml = "";
+                //Attaching handling here in general so don't need to attach as a result of the AJAX 
+                /*
+                $("div#testdiv").click(function(e){
+                	alert("hi");
+                	var target = $(e.target);
+                	if(target.attr("loadlink") != null && target.attr("loadlink") == "true") {
+                		var url = target.attr("href");
+                		e.preventDefault();
+                		alert(url);
+                		//Need to get the corresponding iframe
+                	}
+                });*/
+                
+                //Event handling for authority record
+                //a[loadlink='true']
+                $("div#testdiv ").click(function(e){
+                	e.preventDefault();
+                	//$(e.target); -> this returns the actual chevron
+                	//var target = $(this);
+                	var target = $(e.target);
+                	var link = target.closest("a[loadlink='true']");
+                	if(link) {
+	                	var href = link.attr("href");
+                		var contextInfo = link.closest("div.contextInfo");
+	                	var uri = contextInfo.attr("uri");
+	                	$("iframe[uri='" + uri + "']").attr("src", href);
+	                	$("iframe[uri='" + uri + "']").parent().show();
+	                	return false;
+                	}
+                });
+                
                 //No header row, just straight up search results
                 /*var testhtml = "<div class='row' style='margin-top:12px;border:1px solid #c0c0c0'> " +
                 "<div class='dt col-sm-4'>Labels</div>" +
@@ -5032,16 +5089,21 @@ bfe.define('src/lookups/contextlcnames', ['require', 'exports', 'module', 'src/l
                 	//if RWO, then show here?
                     //TODO: get rid of id since non-unique and check functionality
                 	var labelSelection = "<input type='radio' name='contextResult' id='contextResult" + index + "' uri='" + uri + "' value='" + label + "' style='margin-left:-10px'>&nbsp;";
-                	var labelLink = "<a target='_blank' href='" + uri + "'>" + viewIcon + "</a>";
+                	//target='_blank'
+                	var labelLink = "<a  uri='" + uri + "' loadlink='true' href='" + uri + "'>" + viewIcon + "</a>";
                 	var labels = labelSelection + "<b>" + label + " " + labelLink + "</b>";
                 	labels += "<div class='rwoInfo'></div>";  
                 	testhtml += "<div class='row contextInfo' style='margin-top:12px;border:1px solid #c0c0c0' uri='" + uri + "'> " +
                     "<div class='col-sm-8'>" + labels + "</br>" + 
                     "</div>"+ 
                     "<div class='sameAsInfo col-sm-4'></div>" + 
+                    "<div class='col-sm-12' style='height:400px;display:none'>" + 
+                    "<iframe uri='" + uri + "' src='" + uri + "' width='100%' height='100%'></iframe></div>" + 
                     "</div>";
                 });
                 $("div#testdiv").html(testhtml);
+                
+              
                 
                 //Ajax requests to get info needed to populate context
                 //Do a call on the individual URI to retrieve info
@@ -5075,10 +5137,11 @@ bfe.define('src/lookups/contextlcnames', ['require', 'exports', 'module', 'src/l
 					                    		var rlen = rwoArray.length;
 					                    		var r;
 					                    		if(rlen > 0 && ("@id" in rwoArray[0])) {
-					                    			rwoLink = "RWO"; 
+					                    			rwoLink = ""; 
 					                    			var rwo = rwoArray[0]["@id"];
 					                    			rwoCalls.push(rwo);
-					                    			rwoLink = "<a target='_blank' href='" + rwo + "'>" + rwoLink + "</a><br/>";
+					                    			//Not including link to RWO
+					                    			//rwoLink = "<a target='_blank' href='" + rwo + "'>" + rwoLink + "</a><br/>";
 					                    			rwoLink += "<div class='rwoMoreInfo' uri='" + rwo + "'></div>";
 					                    		}
 					                    	}
@@ -5098,7 +5161,8 @@ bfe.define('src/lookups/contextlcnames', ['require', 'exports', 'module', 'src/l
 					                    					linkAttr = " viaf='" + linkURL + "' ";
 					                    					viafURIs.push(linkURL);
 					                    				}
-					                    				sameAsLink += "<a target='_blank' href='" + linkURL + "'" + linkAttr + ">" + linkLabel + "</a> ";
+					                    				//target='_blank'
+					                    				sameAsLink += "<a loadlink='true' href='" + linkURL + "'" + linkAttr + ">" + linkLabel + viewIcon + "</a> ";
 					                    				sameAsLink += "<span " + linkAttr + "class='wikidata'></span>";
 					                    				sameAsLink += "<span " + linkAttr + "class='isni'></span>";
 					                    			}
@@ -5134,10 +5198,7 @@ bfe.define('src/lookups/contextlcnames', ['require', 'exports', 'module', 'src/l
 								            	//Get the object with the uri
 								            	var rwoOutput = "";
 								            	var rwoObject = dataHash[rwoCall];
-								            	console.log(" data has ");
-								            	console.log(dataHash);
-								            	console.log("rwo boject");
-								            	console.log(rwoObject);
+								            	
 								            	//Keys - there may be more (or different) but this is just to demonstrate
 								            	//these should be within the object
 								            	var bdateURI = "http://www.loc.gov/mads/rdf/v1#birthDate";
@@ -5206,7 +5267,6 @@ bfe.define('src/lookups/contextlcnames', ['require', 'exports', 'module', 'src/l
 					            	 }
 					            	 //vurl = "http://viaf.org/viaf/51711347";
 					            	 var requrl = vurl + "/rdf.xml";
-					            	 console.log(requrl);
 					            	 $.ajax({
 					            		 url:requrl,
 			
@@ -5225,14 +5285,15 @@ bfe.define('src/lookups/contextlcnames', ['require', 'exports', 'module', 'src/l
 					            				 if(sameAs.startsWith("http://www.wikidata") || sameAs.indexOf("wikidata") > 0) {
 					            					 //v is the original URI saved when retrieving from authority
 					            					 var linkLabel = "Wikidata";
-					            					 var wikihtml = "<a target='_blank' href='" + sameAs + "'>" + linkLabel + "</a> ";
+					            					 //target='_blank'
+					            					 var wikihtml = "<a  loadlink='true' href='" + sameAs + "'>" + linkLabel +  viewIcon + "</a> ";
 					            					 $("span.wikidata[viaf='" + v + "']").append("&nbsp;" + wikihtml);
 					            				 }
 					            				 
 					            				 if(sameAs.indexOf("isni") > 0) {
 					            					 //v is the original URI saved when retrieving from authority
 					            					 var linkLabel = "ISNI";
-					            					 var isnihtml = "<a target='_blank' href='" + sameAs + "'>" + linkLabel + "</a> ";
+					            					 var isnihtml = "<a loadlink='true' href='" + sameAs + "'>"  + linkLabel  + viewIcon + "</a> ";
 					            					 $("span.isni[viaf='" + v + "']").append("&nbsp;" + isnihtml);
 					            				 }
 					            			 });
