@@ -4673,9 +4673,12 @@ bfe.define('src/lookups/qashared', ['require', 'exports', 'module'], function(re
               process([]);
           }
           //Searching wraps the actual call to lookup in a timeout function
+        
           this.searching = setTimeout(function() {
         	//Call the lookup function, passing the original query and scheme
           	return exports.lookupQA(query, scheme, cache, process);        }, 300); // 300 ms
+         
+         
 
       }
 
@@ -4758,13 +4761,18 @@ bfe.define('src/lookups/qagenreforms', ['require', 'exports', 'module', 'src/loo
     	//ookupQA(query, scheme, cache, process)
     	//Not sure what to do with process here other than perhaps write out to template?
     	//setTimeout(function() {
+    	 var loadingIcon = "<i class='fa fa-spinner' aria-hidden='true'></i>";
+         $("div#testdiv").html("<div class='row contextInfo' style='text-align:center;margin-top:12px;border:1px solid #c0c0c0'>" + loadingIcon + "</div>");
+       
     		return qashared.lookupQA(query, exports.scheme, cache, function(parsedList){
     			 //Testing out writing out to test div
-                var viewIcon = "<i class='fa fa-external-link-square external-link' aria-hidden='true'></i>";
+                var viewIcon = "<i class='fa fa-chevron-right external-link' aria-hidden='true'></i>";
+                var searchIcon = "<i class='fa fa-search' aria-hidden='true'></i>";
+                var openIcon = "<i class='fa fa-external-link-square external-link' aria-hidden='true'></i>";
                 $("div#testdiv").html("");
                 var testhtml = "<div class='row' style='margin-top:12px;border:1px solid #c0c0c0'> " +
                 "<div class='dt col-sm-4'>Labels</div>" +
-                "<div class='dt col-sm-4'>Note</div>" +
+                "<div class='dt col-sm-4'>Notes/Sources</div>" +
                 "<div class='dt col-sm-4'>Broader/Narrower</div></div>";
                 $.each(parsedlist, function(index, v) {
                 	//testhtml += v["value"] + ":" + v["uri"] + "<br/>";
@@ -4790,7 +4798,9 @@ bfe.define('src/lookups/qagenreforms', ['require', 'exports', 'module', 'src/loo
                 		$.each(broaderArray, function(i, o) {
                 			var olabel = o["label"];
                 			var ouri = o["uri"];
-                			broaderLinks.push("<a target='_blank' href='" + ouri + "'>" + olabel + "</a>");
+                			//Not adding this right now
+                			//var searchOption = "&nbsp;<span 'searchuri='" + ouri + "'>" + searchIcon + "</span>";
+                			broaderLinks.push("<a target='_blank' href='" + ouri + "'>" + olabel + "&nbsp;" + openIcon + "</a>");
                 		});
                 		broaderNarrower += exports.createListFromArray(broaderLinks);
                 			//broaderLinks.join(", ")  + "<br/>";
@@ -4803,7 +4813,9 @@ bfe.define('src/lookups/qagenreforms', ['require', 'exports', 'module', 'src/loo
             			$.each(narrowerArray, function(i, o) {
                 			var olabel = o["label"];
                 			var ouri = o["uri"];
-                			narrowerLinks.push("<a target='_blank' href='" + ouri + "'>" + olabel + "</a>");
+                			//Not adding this right now, need to consider implications
+                			//var searchOption = "&nbsp;<span searchuri='" + ouri + "'>" + searchIcon + "</span>";
+                			narrowerLinks.push("<a target='_blank' href='" + ouri + "'>" + olabel + "&nbsp;" + openIcon + "</a>");
                 		});
                 		broaderNarrower += exports.createListFromArray(narrowerLinks);
                 			//narrowerLinks.join(", ");
@@ -4812,21 +4824,127 @@ bfe.define('src/lookups/qagenreforms', ['require', 'exports', 'module', 'src/loo
 
                 	//Assuming one note but can there be more?
                 	if("Note" in context && context["Note"].length > 0) {
-                		note = context["Note"][0];
+                		note = context["Note"][0] + "<br/>";
                 	}
                 	var labelSelection = "<input type='radio' name='contextResult' id='contextResult" + index + "' uri='" + uri + "' value='" + label + "' style='margin-left:-10px'>&nbsp;";
-                	var labelLink = "<a target='_blank' href='" + uri + "'>" + viewIcon + "</a>";
+                	//This should open in iframe below
+                	var labelLink = "<a loadlink='true' uri='" + uri + "' href='" + uri + "'>" + viewIcon + "</a>";
                 	var labels = labelSelection + "<b>" + label + " " + labelLink + "</b><br/>" + alternate;
                 	testhtml += "<div class='row' style='margin-top:12px;border:1px solid #c0c0c0'> " +
                     "<div class='col-sm-4'>" + labels + "</div>" +
-                    "<div class='col-sm-4'>" + note + "</div>" +
+                    "<div class='col-sm-4 citationnote' uri='" + uri + "'>" + note + "</div>" +
                     "<div class='col-sm-4'>" + broaderNarrower + "</div>" +
+                    "<div class='col-sm-12' style='height:400px;display:none'>" + 
+                    "<iframe uri='" + uri + "' src='' width='100%' height='100%'></iframe></div>" + 
+                    "</div>" + 
                     "</div>";
                 	//Can change this to use click event handler with window.open or review how references handled in bfe in general
                 });
                 $("div#testdiv").html(testhtml);
+                //AJAX request and handling for citation note retrieval
+                $("div.citationnote").each(function(i){
+                	var uri = $(this).attr("uri");
+	            	var sourceURI = "http://www.loc.gov/mads/rdf/v1#hasSource";
+                	var citationSourceURI = "http://www.loc.gov/mads/rdf/v1#citation-source";
+                	var citationNoteURI = "http://www.loc.gov/mads/rdf/v1#citation-note";
+                	$.ajax({
+                		  	url: uri + ".jsonp",
+				            dataType: "jsonp",
+				            success: function(data) {
+				            	var dataHash = {};
+				                data.forEach(function(resource) {
+				                	//Create a hash
+				                	if("@id" in resource) {
+				            			var resourceId = resource["@id"];
+				            			dataHash[resourceId] = resource;
+				            		}
+				                });
+				                
+				                if(uri in dataHash) {
+				                	var authResource = dataHash[uri];
+				                	if(sourceURI in authResource) {
+				                		var sourceArray = authResource[sourceURI];
+				                		var citationHtmlArray = [];
+				                		$.each(sourceArray, function(i, v) {
+				                			if("@id" in v) {
+				                				var sid = v["@id"];
+				                				if(sid in dataHash) {
+				                					var citationObject = dataHash[sid];
+				                					var citationHtml = "";
+				                					if(citationSourceURI in citationObject &&
+				                							citationObject[citationSourceURI].length &&
+				                							"@value" in citationObject[citationSourceURI][0]) {
+				                						citationHtmlArray.push("Source: " + citationObject[citationSourceURI][0]["@value"]);
+				                						if(citationNoteURI in citationObject &&
+					                							citationObject[citationNoteURI].length &&
+					                							"@value" in citationObject[citationNoteURI][0]) {
+					                						citationHtmlArray.push("Note: " + citationObject[citationNoteURI][0]["@value"]);
+					                					}
+				                					}
+				                					
+				                					
+				                				}
+				                			}
+				                		});
+				                		if(citationHtmlArray.length) {
+				                			var citationHtml = citationHtmlArray.join("<br/>");
+				                			$("div.citationnote[uri='" + uri + "']").append(citationHtml);
+				                		}
+
+				                	}
+				                }
+				            }
+                    });
+                });
+                
+                //Event handling for authority record
+                $("div#testdiv ").click(function(e){
+                	//$(e.target); -> this returns the actual chevron
+                	//var target = $(this);
+                	var target = $(e.target);
+                	//Handle opening authority record
+                	var link = target.closest("a[loadlink='true']");
+                	if(link.length) {
+                		//Toggle the handling of button
+                		var icon = link.find("i.fa");
+                		var uri = link.attr("uri");
+                		var iframe = $("iframe[uri='" + uri + "']");
+	                	var expandedClass = "fa-chevron-down";
+	                	var collapsedClass = "fa-chevron-right";
+	                	//Expand this link
+                		if(icon.hasClass(collapsedClass)) {
+                			icon.removeClass(collapsedClass);
+                			icon.addClass(expandedClass);
+                			var href = link.attr("href");    	
+							iframe.attr("src", href);
+							iframe.parent().show();
+							
+                		} else { //Collapse this link
+                			icon.removeClass(expandedClass);
+                			icon.addClass(collapsedClass);
+                			var href = "";    	
+							iframe.attr("src", href);
+							iframe.parent().hide();
+                		}
+	                	e.preventDefault();
+	                	return false;
+                	} else {
+                		//New search needs more clarification - if we already have the URI, are we
+                		//exploring the hierarchy or doing a new TEXT search which would be
+                		//be matching on label but not taking into account the hierarchy itself
+                		/*
+                		//Is this 'doing a new search'
+                    	var searchlink = target.closest("span.searchlink");
+                    	if(searchlink.length) {
+                    		return false;
+                    	}
+                		*/
+                		return true;
+                	}
+                });
+                
     		});
-    		//}, 300);
+    		
 
     }
     exports.createListFromArray = function(listArray) {
@@ -4951,7 +5069,6 @@ bfe.define('src/lookups/contextlcnames', ['require', 'exports', 'module', 'src/l
     }
 
    
-    exports.getResource = lcshared.getResourceWithAAP;
     
     exports.calculateRdfType = function(type) {
     	var rdftype = "";
@@ -4999,6 +5116,8 @@ bfe.define('src/lookups/contextlcnames', ['require', 'exports', 'module', 'src/l
     }
 
     */
+    exports.getResource = lcshared.getResourceWithAAP;
+
     
    /**Would use this with regular LC names lookup**/
     
@@ -5038,41 +5157,60 @@ bfe.define('src/lookups/contextlcnames', ['require', 'exports', 'module', 'src/l
     	//ookupQA(query, scheme, cache, process)
     	//Not sure what to do with process here other than perhaps write out to template?
     	//setTimeout(function() {
+    	$("div#testdiv").html("");
+    	 var loadingIcon = "<i class='fa fa-spinner' aria-hidden='true'></i>";
+         $("div#testdiv").html("<div class='row contextInfo' style='text-align:center;margin-top:12px;border:1px solid #c0c0c0'>" + loadingIcon + "</div>");
+       
     		return qashared.lookupQA(query, exports.scheme, cache, function(parsedList){
     			 //Testing out writing out to test div
                 //var viewIcon = "<i class='fa fa-external-link-square external-link' aria-hidden='true'></i>";
                 var viewIcon = "<i class='fa fa-chevron-right external-link' aria-hidden='true'></i>";
-
-                $("div#testdiv").html("");
-                var testhtml = "";
+                var openIcon = "<i class='fa fa-external-link-square external-link' aria-hidden='true'></i>";
+              
+                 var testhtml = "";
                 //Attaching handling here in general so don't need to attach as a result of the AJAX 
-                /*
-                $("div#testdiv").click(function(e){
-                	alert("hi");
-                	var target = $(e.target);
-                	if(target.attr("loadlink") != null && target.attr("loadlink") == "true") {
-                		var url = target.attr("href");
-                		e.preventDefault();
-                		alert(url);
-                		//Need to get the corresponding iframe
-                	}
-                });*/
-                
+               
                 //Event handling for authority record
-                //a[loadlink='true']
                 $("div#testdiv ").click(function(e){
-                	e.preventDefault();
                 	//$(e.target); -> this returns the actual chevron
                 	//var target = $(this);
                 	var target = $(e.target);
                 	var link = target.closest("a[loadlink='true']");
-                	if(link) {
-	                	var href = link.attr("href");
+                	if(link.length) {
+                		//Toggle the handling of button
+                		var icon = link.find("i.fa");
                 		var contextInfo = link.closest("div.contextInfo");
 	                	var uri = contextInfo.attr("uri");
-	                	$("iframe[uri='" + uri + "']").attr("src", href);
-	                	$("iframe[uri='" + uri + "']").parent().show();
+	                	var iframe = $("iframe[uri='" + uri + "']");
+                		//right = collapsed, down = expanded
+                		//if collapsed, expand with the correct url
+	                	var expandedClass = "fa-chevron-down";
+	                	var collapsedClass = "fa-chevron-right";
+	                	//Expand this link
+                		if(icon.hasClass(collapsedClass)) {
+                			//Expanding this particular link will collapse any other link icons (so we know we're not looking at ISNI if authority record etc.)
+                			contextInfo.find("i.fa").removeClass(expandedClass);
+                			contextInfo.find("i.fa").addClass(collapsedClass);
+                			//uncollapse just this one
+                			icon.removeClass(collapsedClass);
+                			icon.addClass(expandedClass);
+                			var href = link.attr("href");    	
+							iframe.attr("src", href);
+							iframe.parent().show();
+							
+                		} else { //Collapse this link
+                			//This leaves the other links untouched as only one should be expanded
+                			//but all can be collapsed
+                			icon.removeClass(expandedClass);
+                			icon.addClass(collapsedClass);
+                			var href = "";    	
+							iframe.attr("src", href);
+							iframe.parent().hide();
+                		}
+	                	e.preventDefault();
 	                	return false;
+                	} else {
+                		return true;
                 	}
                 });
                 
@@ -5098,7 +5236,7 @@ bfe.define('src/lookups/contextlcnames', ['require', 'exports', 'module', 'src/l
                     "</div>"+ 
                     "<div class='sameAsInfo col-sm-4'></div>" + 
                     "<div class='col-sm-12' style='height:400px;display:none'>" + 
-                    "<iframe uri='" + uri + "' src='" + uri + "' width='100%' height='100%'></iframe></div>" + 
+                    "<iframe uri='" + uri + "' src='' width='100%' height='100%'></iframe></div>" + 
                     "</div>";
                 });
                 $("div#testdiv").html(testhtml);
@@ -5162,7 +5300,10 @@ bfe.define('src/lookups/contextlcnames', ['require', 'exports', 'module', 'src/l
 					                    					viafURIs.push(linkURL);
 					                    				}
 					                    				//target='_blank'
-					                    				sameAsLink += "<a loadlink='true' href='" + linkURL + "'" + linkAttr + ">" + linkLabel + viewIcon + "</a> ";
+					                    				//sameAsLink += "<a loadlink='true' href='" + linkURL + "'" + linkAttr + ">" + linkLabel + viewIcon + "</a> ";
+					                    				//VIAF disallows iframing
+					                    				sameAsLink += "<a target='_blank' href='" + linkURL + "'" + linkAttr + ">" + linkLabel + openIcon + "</a> ";
+
 					                    				sameAsLink += "<span " + linkAttr + "class='wikidata'></span>";
 					                    				sameAsLink += "<span " + linkAttr + "class='isni'></span>";
 					                    			}
