@@ -4220,3 +4220,12 @@ button.close {
 div#save-btn{
     margin-bottom:10px;
 }
+
+
+/** LD4P2 show more **/
+.morecontent span {
+    display: none;
+}
+.morelink {
+    display: block;
+}

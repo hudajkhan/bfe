@@ -4888,6 +4888,15 @@ bfe.define('src/lookups/qagenreforms', ['require', 'exports', 'module', 'src/loo
 				                		});
 				                		if(citationHtmlArray.length) {
 				                			var citationHtml = citationHtmlArray.join("<br/>");
+				                			//If length is > 
+				                			var htmlLength = citationHtml.length;
+				                			var showChar = 150;
+				                			if(htmlLength > showChar) {
+				                				var lessPart = citationHtml.substr(0, showChar);
+				                				var morePart = citationHtml.substr(showChar, htmlLength - showChar);
+				                				citationHtml = lessPart + "<span>...&nbsp;</span><span class='morecontent'><span>" + morePart + "</span>" + 
+				                				"&nbsp;&nbsp;<a href='' class='morelink'>Show more</a></span>";
+				                			}
 				                			$("div.citationnote[uri='" + uri + "']").append(citationHtml);
 				                		}
 
@@ -4897,8 +4906,9 @@ bfe.define('src/lookups/qagenreforms', ['require', 'exports', 'module', 'src/loo
                     });
                 });
                 
+              
                 //Event handling for authority record
-                $("div#testdiv ").click(function(e){
+                $("div#testdiv").click(function(e){
                 	//$(e.target); -> this returns the actual chevron
                 	//var target = $(this);
                 	var target = $(e.target);
@@ -4939,6 +4949,21 @@ bfe.define('src/lookups/qagenreforms', ['require', 'exports', 'module', 'src/loo
                     		return false;
                     	}
                 		*/
+                		
+                		//Event handling for more link
+                		if(target.is("div#testdiv .morelink")) {
+                			 if (target.hasClass("less")) {
+                                 target.removeClass("less");
+                                 target.html("Show more");
+                             } else {
+                                 target.addClass("less");
+                                 target.html("Show less");
+                             }
+                             target.parent().prev().toggle();
+                             target.prev().toggle();
+                             return false;
+                		}
+                		
                 		return true;
                 	}
                 });
@@ -4976,7 +5001,8 @@ bfe.define('src/lookups/contextlcnames', ['require', 'exports', 'module', 'src/l
     var cache = [];
     //Where else is this used? Is this always the URL of the API?
     //exports.scheme = "http://id.loc.gov/authorities/genreForms";
-    exports.scheme = "http://elr37-dev.library.cornell.edu/qa/search/linked_data/locnames_ld4l_cache";
+    //Limiting to people for now, if this were "real", would need to tie to rdf type being passed through
+    exports.scheme = "http://elr37-dev.library.cornell.edu/qa/search/linked_data/locnames_ld4l_cache/person";
     exports.source = function(query, process) {
 		qashared.source(query, exports.scheme, process, cache);
 
@@ -5223,14 +5249,14 @@ bfe.define('src/lookups/contextlcnames', ['require', 'exports', 'module', 'src/l
                 	//testhtml += v["value"] + ":" + v["uri"] + "<br/>";
                 	var label = v["value"];
                 	var uri = v["uri"];
-                	var context = v["context"];
-                	//if RWO, then show here?
+                	
                     //TODO: get rid of id since non-unique and check functionality
                 	var labelSelection = "<input type='radio' name='contextResult' id='contextResult" + index + "' uri='" + uri + "' value='" + label + "' style='margin-left:-10px'>&nbsp;";
                 	//target='_blank'
                 	var labelLink = "<a  uri='" + uri + "' loadlink='true' href='" + uri + "'>" + viewIcon + "</a>";
                 	var labels = labelSelection + "<b>" + label + " " + labelLink + "</b>";
-                	labels += "<div class='rwoInfo'></div>";  
+                	labels += "<div class='variantLabels'></div>" +
+                	"<div class='rwoInfo'></div>";  
                 	testhtml += "<div class='row contextInfo' style='margin-top:12px;border:1px solid #c0c0c0' uri='" + uri + "'> " +
                     "<div class='col-sm-8'>" + labels + "</br>" + 
                     "</div>"+ 
@@ -5254,70 +5280,112 @@ bfe.define('src/lookups/contextlcnames', ['require', 'exports', 'module', 'src/l
 					            success: function(data) {
 					            	var rwoCalls = [];
 					            	var viafURIs = [];
-					                data.forEach(function(resource) {
-					                    if (resource["@id"] === u) {
-					                    	var rwoURI = "http://www.loc.gov/mads/rdf/v1#identifiesRWO";
-					                    	var sameAsURI = "http://www.w3.org/2004/02/skos/core#exactMatch";
-					                    	if(rwoURI in resource) {
-					                    		var rwoArray = resource[rwoURI];
-					                    		context["rwo"] = rwoArray;
-					                    	}
-					                    	if(sameAsURI in resource) {
-					                    		var sameAsArray = resource[sameAsURI];
-					                    		context["sameAs"] = sameAsArray;
-					                    	}
-					                    	
-					                    	
-					                    	var rwoLink = "";
-					                    	var sameAsLink = "";
-					                    	if("rwo" in context) {
-					                    		var rwoArray = context["rwo"];
-					                    		var rlen = rwoArray.length;
-					                    		var r;
-					                    		if(rlen > 0 && ("@id" in rwoArray[0])) {
-					                    			rwoLink = ""; 
-					                    			var rwo = rwoArray[0]["@id"];
-					                    			rwoCalls.push(rwo);
-					                    			//Not including link to RWO
-					                    			//rwoLink = "<a target='_blank' href='" + rwo + "'>" + rwoLink + "</a><br/>";
-					                    			rwoLink += "<div class='rwoMoreInfo' uri='" + rwo + "'></div>";
-					                    		}
-					                    	}
-					                    	if("sameAs" in context) {
-					                    		var sameAsArray = context["sameAs"];
-					                    		var slen = sameAsArray.length;
-					                    		var s;
-					                    		if(slen > 0) sameAsLink = "";
-					                    		for(s = 0; s < slen; s++) {
-					                    			var sameAs = sameAsArray[s];
-					                    			if("@id" in sameAs) {
-					                    				var linkLabel = "Link";
-					                    				var linkURL = sameAs["@id"];
-					                    				var linkAttr = "";
-					                    				if(linkURL.startsWith("http://viaf.org")) {
-					                    					linkLabel = "VIAF";
-					                    					linkAttr = " viaf='" + linkURL + "' ";
-					                    					viafURIs.push(linkURL);
-					                    				}
-					                    				//target='_blank'
-					                    				//sameAsLink += "<a loadlink='true' href='" + linkURL + "'" + linkAttr + ">" + linkLabel + viewIcon + "</a> ";
-					                    				//VIAF disallows iframing
-					                    				sameAsLink += "<a target='_blank' href='" + linkURL + "'" + linkAttr + ">" + linkLabel + openIcon + "</a> ";
+					            	var authDataHash = {};
+					            	//Create hash by id
+					            	 data.forEach(function(resource) {
+					            		if("@id" in resource) {
+					            			var dataId = resource["@id"];
+					            			authDataHash[dataId] = resource;
+					            		}
+					            	});
+					              
+				                    if (u in authDataHash) {
+				                    	
+				                    	var resource = authDataHash[u];
+				                    	var variantLabelURI = "http://www.loc.gov/mads/rdf/v1#hasVariant";
+				                    	var rwoURI = "http://www.loc.gov/mads/rdf/v1#identifiesRWO";
+				                    	var sameAsURI = "http://www.w3.org/2004/02/skos/core#exactMatch";
+				                    	if(rwoURI in resource) {
+				                    		var rwoArray = resource[rwoURI];
+				                    		context["rwo"] = rwoArray;
+				                    	}
+				                    	if(sameAsURI in resource) {
+				                    		var sameAsArray = resource[sameAsURI];
+				                    		context["sameAs"] = sameAsArray;
+				                    	}
+				                    	if(variantLabelURI in resource) {
+				                    		var variantArray = resource[variantLabelURI];
+				                    		context["variantLabels"]= variantArray;
+				                    	}
+				                    	
+				                    	
+				                    	var rwoLink = "";
+				                    	var sameAsLink = "";
+				                    	if("rwo" in context) {
+				                    		var rwoArray = context["rwo"];
+				                    		var rlen = rwoArray.length;
+				                    		var r;
+				                    		if(rlen > 0 && ("@id" in rwoArray[0])) {
+				                    			rwoLink = ""; 
+				                    			var rwo = rwoArray[0]["@id"];
+				                    			rwoCalls.push(rwo);
+				                    			//Not including link to RWO
+				                    			//rwoLink = "<a target='_blank' href='" + rwo + "'>" + rwoLink + "</a><br/>";
+				                    			rwoLink += "<div class='rwoMoreInfo' uri='" + rwo + "'></div>";
+				                    		}
+				                    	}
+				                    	if("sameAs" in context) {
+				                    		var sameAsArray = context["sameAs"];
+				                    		var slen = sameAsArray.length;
+				                    		var s;
+				                    		if(slen > 0) sameAsLink = "";
+				                    		for(s = 0; s < slen; s++) {
+				                    			var sameAs = sameAsArray[s];
+				                    			if("@id" in sameAs) {
+				                    				var linkLabel = "Link";
+				                    				var linkURL = sameAs["@id"];
+				                    				var linkAttr = "";
+				                    				if(linkURL.startsWith("http://viaf.org")) {
+				                    					linkLabel = "VIAF";
+				                    					linkAttr = " viaf='" + linkURL + "' ";
+				                    					viafURIs.push(linkURL);
+				                    				}
+				                    				//target='_blank'
+				                    				//sameAsLink += "<a loadlink='true' href='" + linkURL + "'" + linkAttr + ">" + linkLabel + viewIcon + "</a> ";
+				                    				//VIAF disallows iframing
+				                    				sameAsLink += "<a target='_blank' href='" + linkURL + "'" + linkAttr + ">" + linkLabel + openIcon + "</a> ";
 
-					                    				sameAsLink += "<span " + linkAttr + "class='wikidata'></span>";
-					                    				sameAsLink += "<span " + linkAttr + "class='isni'></span>";
-					                    			}
-					                    		}
-					                    		sameAsLink += "<br/>";
-					                    	}
-					                    	
-					                    	$("div.contextInfo[uri='" + u + "'] div.rwoInfo").append(rwoLink);
-					                    	$("div.contextInfo[uri='" + u + "'] div.sameAsInfo").append(sameAsLink);
+				                    				sameAsLink += "<span " + linkAttr + "class='wikidata'></span>";
+				                    				sameAsLink += "<span " + linkAttr + "class='isni'></span>";
+				                    			}
+				                    		}
+				                    		sameAsLink += "<br/>";
+				                    	}
+				                    	
+				                    	var variantLabelValueURI = "http://www.loc.gov/mads/rdf/v1#variantLabel";
+				                    	var variantLabelText = "";
+				                    	//Variant label handling
+				                    	if("variantLabels" in context) {
+				                    		var variantArray = context["variantLabels"];
+				                    		var variantLabels = [];
+				                    		$.each(variantArray, function(i, v) {
+				                    			var variantInfo = v;
+				                    			if("@id" in v) {
+				                    				var variantId = v["@id"];
+				                    				if(variantId in authDataHash) {
+				                    					var variantObject = authDataHash[variantId];
+				                    					if(variantLabelValueURI in variantObject 
+				                    						&& variantObject[variantLabelValueURI].length
+				                    						&& "@value" in variantObject[variantLabelValueURI][0]) {
+				                    						var variantLabel = variantObject[variantLabelValueURI][0]["@value"];
+				                    						variantLabels.push(variantLabel);
+				                    					}
+				                    				}
+				                    			}
+				                    		});
+				                    		if(variantLabels.length) {
+				                    			variantLabelText = "Variant Labels: " + variantLabels.join(" ,");
+				                    		}
+				                    	}
+				                    	
+				                    	$("div.contextInfo[uri='" + u + "'] div.rwoInfo").append(rwoLink);
+				                    	$("div.contextInfo[uri='" + u + "'] div.sameAsInfo").append(sameAsLink);
+				                    	$("div.contextInfo[uri='" + u + "'] div.variantLabels").append(variantLabelText);
 
+				                    }	
 					                    	
-					                    	
-					                    }
-					                });
+					                   
+					            
 					                //With divs appended with RWO and same AS info, now request RWO info and parse results and append
 					                var clen = rwoCalls.length;
 					                var c;
